@@ -1,6 +1,6 @@
 use std::process::exit;
 
-mod interpreter;
+use rchip8::interpreter;
 
 fn main() {
     let mut interpreter = interpreter::Chip8Interpreter::new();

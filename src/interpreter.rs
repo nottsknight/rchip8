@@ -1,6 +1,8 @@
 use std::fs::File;
 use std::io::Read;
 
+use crate::instruction::Instruction;
+
 const MEM_SIZE: u16 = 4096;
 
 pub struct Chip8Interpreter {
@@ -33,8 +35,10 @@ impl Chip8Interpreter {
     pub fn run(&mut self) -> std::io::Result<()> {
         loop {
             let code = self.fetch();
-            self.decode(code);
-            self.execute();
+            let inst = self.decode(code);
+            if !self.execute(inst) {
+                break;
+            }
         }
         Ok(())
     }
@@ -46,7 +50,36 @@ impl Chip8Interpreter {
         return (hi << 8) | lo;
     }
 
-    fn decode(&self, code: u16) -> () {}
+    fn decode(&self, code: u16) -> Instruction {
+        Instruction::from(code)
+    }
 
-    fn execute(&self) {}
+    fn execute(&mut self, Instruction(a, b, c, d): Instruction) -> bool {
+        match a {
+            0x6 => {
+                self.registers[b as usize] = (c << 4) | d;
+                return true;
+            }
+            0x8 => match d {
+                0x0 => {
+                    self.registers[b as usize] = self.registers[c as usize];
+                    return true;
+                }
+                0x1 => {
+                    self.registers[b as usize] |= self.registers[c as usize];
+                    return true;
+                }
+                0x2 => {
+                    self.registers[b as usize] &= self.registers[c as usize];
+                    return true;
+                }
+                0x3 => {
+                    self.registers[b as usize] ^= self.registers[c as usize];
+                    return true;
+                }
+                _ => return false,
+            },
+            _ => return false,
+        }
+    }
 }
