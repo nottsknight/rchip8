@@ -1,0 +1,53 @@
+use std::sync::atomic::AtomicU8;
+use std::sync::Arc;
+
+#[derive(Debug)]
+pub struct VirtualMachine {
+    memory: [u8; 4096],
+    display: [bool; 64 * 32],
+    prog_counter: usize,
+    index_reg: u16,
+    stack: Vec<u8>, 
+    delay_timer: Arc<AtomicU8>,
+    sound_timer: Arc<AtomicU8>,
+    registers: [u8; 16],
+}
+
+impl VirtualMachine {
+    pub fn new() -> VirtualMachine {
+        let fonts: [u8; 80] = [
+            0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
+            0x20, 0x60, 0x20, 0x20, 0x70, // 1
+            0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
+            0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
+            0x90, 0x90, 0xF0, 0x10, 0x10, // 4
+            0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
+            0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
+            0xF0, 0x10, 0x20, 0x40, 0x40, // 7
+            0xF0, 0x90, 0xF0, 0x90, 0xF0, // 8
+            0xF0, 0x90, 0xF0, 0x10, 0xF0, // 9
+            0xF0, 0x90, 0xF0, 0x90, 0x90, // A
+            0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
+            0xF0, 0x80, 0x80, 0x80, 0xF0, // C
+            0xE0, 0x90, 0x90, 0x90, 0xE0, // D
+            0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
+            0xF0, 0x80, 0xF0, 0x80, 0x80, // F
+        ];
+
+        let mut memory_array = [0; 4096];
+        for i in 0x050..0x09f {
+            memory_array[i] = fonts[i - 0x0f0];
+        }
+
+        VirtualMachine {
+            memory: memory_array, 
+            display: [false; 64 * 32],
+            prog_counter: 0x200,
+            index_reg: 0,
+            stack: Vec::new(),
+            delay_timer: Arc::new(AtomicU8::new(0)),
+            sound_timer: Arc::new(AtomicU8::new(0)),
+            registers: [0; 16],
+        }
+    }
+}
