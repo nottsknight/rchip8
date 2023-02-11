@@ -1,12 +1,12 @@
 use simple_ansi::cursor;
 use std::fs::File;
 use std::io::Read;
-use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
-use crate::add_carry::AddCarry;
+use crate::carry_borrow::{AddCarry, SubBorrow};
 use crate::hilo::HiLo;
 use crate::insts::Chip8Inst;
 
@@ -229,26 +229,14 @@ impl VirtualMachine {
                 self.registers[0xf] = if carry { 1 } else { 0 }
             }
             Chip8Inst::ArithSub(x, y) => {
-                let n = self.registers[x];
-                let m = self.registers[y];
-                if n > m {
-                    self.registers[x] = 0;
-                    self.registers[0xf] = 1;
-                } else {
-                    self.registers[x] = n - m;
-                    self.registers[0xf] = 0;
-                }
+                let (diff, borrow) = u8::sub_borrow(self.registers[x], self.registers[y]);
+                self.registers[x] = diff;
+                self.registers[0xf] = if borrow { 1 } else { 0 }
             }
             Chip8Inst::ArithSubReverse(x, y) => {
-                let n = self.registers[y];
-                let m = self.registers[x];
-                if n > m {
-                    self.registers[x] = 0;
-                    self.registers[0xf] = 1;
-                } else {
-                    self.registers[x] = n - m;
-                    self.registers[0xf] = 0;
-                }
+                let (diff, borrow) = u8::sub_borrow(self.registers[y], self.registers[x]);
+                self.registers[x] = diff;
+                self.registers[0xf] = if borrow { 1 } else { 0 }
             }
             Chip8Inst::ReadDelay(x) => {
                 let n = self.delay_timer.load(Ordering::Acquire);
@@ -315,13 +303,10 @@ impl VirtualMachine {
         let delay_clone = Arc::clone(&self.delay_timer);
         let sound_clone = Arc::clone(&self.sound_timer);
 
-        let run_timers = Arc::new(AtomicBool::new(true));
-        let run_timers_clone = Arc::clone(&run_timers);
-
-        let timer_thread = thread::spawn(move || {
+        thread::spawn(move || {
             let freq = Duration::from_nanos(16667);
 
-            while run_timers_clone.load(Ordering::Acquire) {
+            loop {
                 let d = delay_clone.load(Ordering::Acquire);
                 if d > 0 {
                     delay_clone.store(d - 1, Ordering::Release);
@@ -338,7 +323,7 @@ impl VirtualMachine {
 
         // fetch-decode-execute loop
         let cpu_freq = Duration::from_nanos(250);
-        for _ in 1..100 {
+        loop {
             let code = self.fetch();
             match self.decode(code) {
                 Ok(inst) => self.execute(inst),
@@ -348,12 +333,6 @@ impl VirtualMachine {
                 }
             }
             thread::sleep(cpu_freq);
-        }
-
-        run_timers.store(false, Ordering::Release);
-        match timer_thread.join() {
-            Ok(_) => (),
-            Err(e) => panic!("{:?}", e),
         }
     }
 }
