@@ -2,7 +2,7 @@
 pub enum Chip8Inst {
     // Display
     ClearScreen,
-    Display(u8, u8),
+    Display(usize, usize, u8),
     // Subroutines and jumps
     MachineInst,
     Jump(usize),
@@ -28,5 +28,7 @@ pub enum Chip8Inst {
     ReadDelay(usize),
     SetDelay(usize),
     SetSound(usize),
+    // Index reg
     SetIndex(usize),
+    AddIndex(usize),
 }

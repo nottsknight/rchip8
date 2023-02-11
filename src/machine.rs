@@ -28,11 +28,15 @@ const FONT: [u8; 80] = [
     0xF0, 0x80, 0xF0, 0x80, 0x80, // F
 ];
 
+const DISPLAY_ROWS: usize = 32;
+
+const DISPLAY_COLS: usize = 64;
+
 const DEBUG: bool = true;
 
 pub struct VirtualMachine {
     memory: [u8; 4096],
-    display: [bool; 64 * 32],
+    display: [[bool; DISPLAY_COLS]; DISPLAY_ROWS],
     prog_counter: usize,
     index_reg: usize,
     stack: Vec<usize>,
@@ -50,7 +54,7 @@ impl VirtualMachine {
 
         VirtualMachine {
             memory: memory_array,
-            display: [false; 64 * 32],
+            display: [[false; DISPLAY_COLS]; DISPLAY_ROWS],
             prog_counter: 0x200,
             index_reg: 0,
             stack: Vec::new(),
@@ -67,7 +71,7 @@ impl VirtualMachine {
         (hi << 8) | lo
     }
 
-    fn decode(&mut self, code: u16) -> Result<Chip8Inst, String> {
+    fn decode(&self, code: u16) -> Result<Chip8Inst, String> {
         let (a, b) = code.hi().split();
         let (c, d) = code.lo().split();
         match a {
@@ -128,10 +132,12 @@ impl VirtualMachine {
                 let n = make_usize(b, c, d);
                 Ok(Chip8Inst::SetIndex(n))
             }
+            0xd => Ok(Chip8Inst::Display(b as usize, c as usize, d)),
             0xf => match (c, d) {
                 (0x0, 0x7) => Ok(Chip8Inst::ReadDelay(b as usize)),
                 (0x1, 0x5) => Ok(Chip8Inst::SetDelay(b as usize)),
                 (0x1, 0x8) => Ok(Chip8Inst::SetSound(b as usize)),
+                (0x1, 0xe) => Ok(Chip8Inst::AddIndex(b as usize)),
                 _ => Err(self.bad_instruction(code)),
             },
             _ => Err(self.bad_instruction(code)),
@@ -141,7 +147,8 @@ impl VirtualMachine {
     fn bad_instruction(&self, code: u16) -> String {
         format!(
             "Invalid instruction at {:#010x}: {:#06x}",
-            self.prog_counter - 2, code
+            self.prog_counter - 2,
+            code
         )
     }
 
@@ -152,7 +159,11 @@ impl VirtualMachine {
 
         match inst {
             Chip8Inst::MachineInst => (),
-            Chip8Inst::ClearScreen => self.display.fill(false),
+            Chip8Inst::ClearScreen => {
+                for mut row in self.display {
+                    row.fill(false);
+                }
+            }
             Chip8Inst::SubCall(n) => {
                 self.stack.push(self.prog_counter);
                 self.prog_counter = n;
@@ -163,6 +174,7 @@ impl VirtualMachine {
             },
             Chip8Inst::Jump(n) => self.prog_counter = n,
             Chip8Inst::SetIndex(n) => self.index_reg = n,
+            Chip8Inst::AddIndex(x) => self.index_reg += self.registers[x] as usize,
             Chip8Inst::RegSet(x, n) => self.registers[x] = n,
             Chip8Inst::RegAddNoCarry(x, n) => {
                 let m = self.registers[x];
@@ -229,7 +241,37 @@ impl VirtualMachine {
             Chip8Inst::SetSound(x) => {
                 self.sound_timer.store(self.registers[x], Ordering::Release);
             }
-            _ => (),
+            Chip8Inst::Display(x_reg, y_reg, n) => {
+                let mut x = (self.registers[x_reg] & 63) as usize;
+                let mut y = (self.registers[y_reg] & 31) as usize;
+                self.registers[0xf] = 0;
+
+                for i in 0..n {
+                    let b = self.memory[self.index_reg + i as usize];
+                    let bs = [
+                        b & 0x70,
+                        b & 0x50,
+                        b & 0x30,
+                        b & 0x10,
+                        b & 0x7,
+                        b & 0x5,
+                        b & 0x3,
+                        b & 0x1,
+                    ];
+                    for j in 0..8 {
+                        self.display[x-1][y-1] = bs[j] != 0;
+                        x += 1;
+                        if x >= DISPLAY_COLS {
+                            break;
+                        }
+                    }
+                    y += 1;
+                    if y >= DISPLAY_ROWS {
+                        break;
+                    }
+                    x = (self.registers[x_reg] & 63) as usize;
+                }
+            }
         }
 
         if DEBUG {
