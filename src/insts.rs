@@ -31,4 +31,6 @@ pub enum Chip8Inst {
     // Index reg
     SetIndex(usize),
     AddIndex(usize),
+    // Random
+    Random(usize, u8),
 }

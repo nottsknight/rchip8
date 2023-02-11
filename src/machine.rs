@@ -33,8 +33,6 @@ const DISPLAY_ROWS: usize = 32;
 
 const DISPLAY_COLS: usize = 64;
 
-const DEBUG: bool = true;
-
 pub struct VirtualMachine {
     memory: [u8; 4096],
     display: [[bool; DISPLAY_COLS]; DISPLAY_ROWS],
@@ -49,9 +47,7 @@ pub struct VirtualMachine {
 impl VirtualMachine {
     pub fn new() -> VirtualMachine {
         let mut memory_array = [0; 4096];
-        for i in 0x050..0x09f {
-            memory_array[i] = FONT[i - 0x050];
-        }
+        memory_array[0x050..0x0a0].copy_from_slice(&FONT[..]);
 
         VirtualMachine {
             memory: memory_array,
@@ -149,6 +145,10 @@ impl VirtualMachine {
                 let n = make_usize(b, c, d);
                 Ok(Chip8Inst::SetIndex(n))
             }
+            0xc => {
+                let n = (c << 4) | d;
+                Ok(Chip8Inst::Random(b as usize, n))
+            }
             0xd => Ok(Chip8Inst::Display(b as usize, c as usize, d)),
             0xf => match (c, d) {
                 (0x0, 0x7) => Ok(Chip8Inst::ReadDelay(b as usize)),
@@ -188,7 +188,12 @@ impl VirtualMachine {
             },
             Chip8Inst::Jump(n) => self.prog_counter = n,
             Chip8Inst::SetIndex(n) => self.index_reg = n,
-            Chip8Inst::AddIndex(x) => self.index_reg += self.registers[x] as usize,
+            Chip8Inst::AddIndex(x) => {
+                self.index_reg += self.registers[x] as usize;
+                if self.index_reg >= 0x1000 {
+                    self.registers[0xf] = 1;
+                }
+            }
             Chip8Inst::RegSet(x, n) => self.registers[x] = n,
             Chip8Inst::RegAddNoCarry(x, n) => {
                 let m = self.registers[x];
@@ -287,6 +292,10 @@ impl VirtualMachine {
                 }
                 self.print_display();
             }
+            Chip8Inst::Random(x, n) => {
+                let r = rand::random::<u8>();
+                self.registers[x] = n & r;
+            }
         }
     }
 
@@ -328,7 +337,10 @@ impl VirtualMachine {
             let code = self.fetch();
             match self.decode(code) {
                 Ok(inst) => self.execute(inst),
-                Err(e) => panic!("{}", e),
+                Err(e) => {
+                    cursor::home();
+                    panic!("{}", e);
+                }
             }
             thread::sleep(cpu_freq);
         }
