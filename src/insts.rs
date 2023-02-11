@@ -1,4 +1,4 @@
-
+#[derive(Debug)]
 pub enum Chip8Inst {
     // Display
     ClearScreen,
@@ -24,5 +24,9 @@ pub enum Chip8Inst {
     ArithAdd(usize, usize),
     ArithSub(usize, usize),
     ArithSubReverse(usize, usize),
+    // Timers 
+    ReadDelay(usize),
+    SetDelay(usize),
+    SetSound(usize),
     SetIndex(usize),
 }

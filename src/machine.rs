@@ -1,8 +1,34 @@
+use std::fs::File;
+use std::io::Read;
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+use std::sync::Arc;
+use std::thread;
+use std::time::Duration;
+
 use crate::add_carry::AddCarry;
 use crate::hilo::HiLo;
 use crate::insts::Chip8Inst;
-use std::sync::atomic::AtomicU8;
-use std::sync::Arc;
+
+const FONT: [u8; 80] = [
+    0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
+    0x20, 0x60, 0x20, 0x20, 0x70, // 1
+    0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
+    0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
+    0x90, 0x90, 0xF0, 0x10, 0x10, // 4
+    0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
+    0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
+    0xF0, 0x10, 0x20, 0x40, 0x40, // 7
+    0xF0, 0x90, 0xF0, 0x90, 0xF0, // 8
+    0xF0, 0x90, 0xF0, 0x10, 0xF0, // 9
+    0xF0, 0x90, 0xF0, 0x90, 0x90, // A
+    0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
+    0xF0, 0x80, 0x80, 0x80, 0xF0, // C
+    0xE0, 0x90, 0x90, 0x90, 0xE0, // D
+    0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
+    0xF0, 0x80, 0xF0, 0x80, 0x80, // F
+];
+
+const DEBUG: bool = true;
 
 pub struct VirtualMachine {
     memory: [u8; 4096],
@@ -17,28 +43,9 @@ pub struct VirtualMachine {
 
 impl VirtualMachine {
     pub fn new() -> VirtualMachine {
-        let fonts: [u8; 80] = [
-            0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
-            0x20, 0x60, 0x20, 0x20, 0x70, // 1
-            0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
-            0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
-            0x90, 0x90, 0xF0, 0x10, 0x10, // 4
-            0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
-            0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
-            0xF0, 0x10, 0x20, 0x40, 0x40, // 7
-            0xF0, 0x90, 0xF0, 0x90, 0xF0, // 8
-            0xF0, 0x90, 0xF0, 0x10, 0xF0, // 9
-            0xF0, 0x90, 0xF0, 0x90, 0x90, // A
-            0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
-            0xF0, 0x80, 0x80, 0x80, 0xF0, // C
-            0xE0, 0x90, 0x90, 0x90, 0xE0, // D
-            0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
-            0xF0, 0x80, 0xF0, 0x80, 0x80, // F
-        ];
-
         let mut memory_array = [0; 4096];
         for i in 0x050..0x09f {
-            memory_array[i] = fonts[i - 0x050];
+            memory_array[i] = FONT[i - 0x050];
         }
 
         VirtualMachine {
@@ -121,15 +128,28 @@ impl VirtualMachine {
                 let n = make_usize(b, c, d);
                 Ok(Chip8Inst::SetIndex(n))
             }
-            _ => Err(self.bad_instruction(code)), 
+            0xf => match (c, d) {
+                (0x0, 0x7) => Ok(Chip8Inst::ReadDelay(b as usize)),
+                (0x1, 0x5) => Ok(Chip8Inst::SetDelay(b as usize)),
+                (0x1, 0x8) => Ok(Chip8Inst::SetSound(b as usize)),
+                _ => Err(self.bad_instruction(code)),
+            },
+            _ => Err(self.bad_instruction(code)),
         }
     }
 
     fn bad_instruction(&self, code: u16) -> String {
-        format!("Invalid instruction at {:#010x}: {:#06x}", self.prog_counter, code)
+        format!(
+            "Invalid instruction at {:#010x}: {:#06x}",
+            self.prog_counter - 2, code
+        )
     }
 
     fn execute(&mut self, inst: Chip8Inst) {
+        if DEBUG {
+            println!("{:?}", inst);
+        }
+
         match inst {
             Chip8Inst::MachineInst => (),
             Chip8Inst::ClearScreen => self.display.fill(false),
@@ -199,20 +219,69 @@ impl VirtualMachine {
                     self.registers[0xf] = 0;
                 }
             }
+            Chip8Inst::ReadDelay(x) => {
+                let n = self.delay_timer.load(Ordering::Acquire);
+                self.registers[x] = n;
+            }
+            Chip8Inst::SetDelay(x) => {
+                self.delay_timer.store(self.registers[x], Ordering::Release);
+            }
+            Chip8Inst::SetSound(x) => {
+                self.sound_timer.store(self.registers[x], Ordering::Release);
+            }
             _ => (),
+        }
+
+        if DEBUG {
+            println!("{:?}", self.registers);
         }
     }
 
+    pub fn load_program(&mut self, fname: &str) -> std::io::Result<()> {
+        let mut f = File::open(fname)?;
+        f.read(&mut self.memory[0x200..])?;
+        Ok(())
+    }
+
     pub fn run(&mut self) {
-        loop {
+        // start timers
+        let delay_clone = Arc::clone(&self.delay_timer);
+        let sound_clone = Arc::clone(&self.sound_timer);
+
+        let run_timers = Arc::new(AtomicBool::new(true));
+        let run_timers_clone = Arc::clone(&run_timers);
+
+        let timer_thread = thread::spawn(move || {
+            let freq = Duration::from_nanos(16667);
+
+            while run_timers_clone.load(Ordering::Acquire) {
+                let d = delay_clone.load(Ordering::Acquire);
+                if d > 0 {
+                    delay_clone.store(d - 1, Ordering::Release);
+                }
+
+                let d = sound_clone.load(Ordering::Acquire);
+                if d > 0 {
+                    sound_clone.store(d - 1, Ordering::Release);
+                }
+
+                thread::sleep(freq);
+            }
+        });
+
+        // fetch-decode-execute loop
+        for _ in 1..100 {
             let code = self.fetch();
             match self.decode(code) {
                 Ok(inst) => self.execute(inst),
-                Err(e) => {
-                    println!("{}", e);
-                    break;
-                },
+                Err(e) => panic!("{}", e),
             }
+        }
+
+        run_timers.store(false, Ordering::Release);
+        match timer_thread.join() {
+            Ok(_) => (),
+            Err(e) => panic!("{:?}", e),
         }
     }
 }
