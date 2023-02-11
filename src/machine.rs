@@ -1,10 +1,13 @@
-use simple_ansi::cursor;
 use std::fs::File;
 use std::io::Read;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
+use termion::clear;
+use termion::cursor;
+use termion::event::Key;
+use termion::input::TermRead;
 
 use crate::carry_borrow::{AddCarry, SubBorrow};
 use crate::hilo::HiLo;
@@ -62,7 +65,8 @@ impl VirtualMachine {
     }
 
     fn print_display(&self) {
-        cursor::home();
+        print!("{}", cursor::Goto(1,1));
+
         let mut display_str = String::from("");
         for row in self.display {
             for col in row {
@@ -167,6 +171,30 @@ impl VirtualMachine {
             self.prog_counter - 2,
             code
         )
+    }
+
+    fn get_keydown() -> Option<u8> {
+        let mut keys = std::io::stdin().keys();
+        let k = keys.nth(0).unwrap().unwrap();
+        return match k {
+            Key::Char('1') => Some(0x1),
+            Key::Char('2') => Some(0x2),
+            Key::Char('3') => Some(0x3),
+            Key::Char('4') => Some(0xc),
+            Key::Char('q') => Some(0x4),
+            Key::Char('w') => Some(0x5),
+            Key::Char('e') => Some(0x6),
+            Key::Char('r') => Some(0xd),
+            Key::Char('a') => Some(0x7),
+            Key::Char('s') => Some(0x8),
+            Key::Char('d') => Some(0x9),
+            Key::Char('f') => Some(0xe),
+            Key::Char('z') => Some(0xa),
+            Key::Char('x') => Some(0x0),
+            Key::Char('c') => Some(0xb),
+            Key::Char('v') => Some(0xf),
+            _ => None,
+        };
     }
 
     fn execute(&mut self, inst: Chip8Inst) {
@@ -299,6 +327,8 @@ impl VirtualMachine {
     }
 
     pub fn run(&mut self) {
+        print!("{}{}", clear::All, cursor::Goto(1, 1));
+
         // start timers
         let delay_clone = Arc::clone(&self.delay_timer);
         let sound_clone = Arc::clone(&self.sound_timer);
@@ -328,7 +358,7 @@ impl VirtualMachine {
             match self.decode(code) {
                 Ok(inst) => self.execute(inst),
                 Err(e) => {
-                    cursor::home();
+                    print!("{}", cursor::Goto(1,1));
                     panic!("{}", e);
                 }
             }

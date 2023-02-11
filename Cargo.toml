@@ -8,5 +8,5 @@ edition = "2021"
 name = "rchip8"
 
 [dependencies]
-simple_ansi = "0.1.0"
 rand = "0.8.5"
+termion = "2.0.1"
