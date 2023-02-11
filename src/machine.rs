@@ -268,17 +268,22 @@ impl VirtualMachine {
                 for i in 0..n {
                     let b = self.memory[self.index_reg + i as usize];
                     let bs = [
-                        b & 0x70,
-                        b & 0x50,
-                        b & 0x30,
+                        b & 0x80,
+                        b & 0x40,
+                        b & 0x20,
                         b & 0x10,
-                        b & 0x7,
-                        b & 0x5,
-                        b & 0x3,
+                        b & 0x8,
+                        b & 0x4,
+                        b & 0x2,
                         b & 0x1,
                     ];
                     for j in 0..8 {
-                        self.display[y - 1][x - 1] = bs[j] != 0;
+                        if self.display[y - 1][x - 1] && bs[j] != 0 {
+                            self.display[y - 1][x - 1] = false;
+                        } else if !self.display[y - 1][x - 1] && bs[j] != 0 {
+                            self.display[y - 1][x - 1] = true;
+                        }
+
                         x += 1;
                         if x - 2 >= DISPLAY_COLS {
                             break;
