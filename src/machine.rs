@@ -9,7 +9,7 @@ pub struct VirtualMachine {
     display: [bool; 64 * 32],
     prog_counter: usize,
     index_reg: usize,
-    stack: Vec<u8>,
+    stack: Vec<usize>,
     delay_timer: Arc<AtomicU8>,
     sound_timer: Arc<AtomicU8>,
     registers: [u8; 16],
@@ -38,7 +38,7 @@ impl VirtualMachine {
 
         let mut memory_array = [0; 4096];
         for i in 0x050..0x09f {
-            memory_array[i] = fonts[i - 0x0f0];
+            memory_array[i] = fonts[i - 0x050];
         }
 
         VirtualMachine {
@@ -60,46 +60,159 @@ impl VirtualMachine {
         (hi << 8) | lo
     }
 
-    fn decode(&mut self, code: u16) -> Chip8Inst {
+    fn decode(&mut self, code: u16) -> Result<Chip8Inst, String> {
         let (a, b) = code.hi().split();
         let (c, d) = code.lo().split();
         match a {
             0x0 => match (b, c, d) {
-                (0x0, 0xe, 0x0) => Chip8Inst::ClearScreen,
-                _ => panic!("Invalid instruction"),
+                (0x0, 0xe, 0x0) => Ok(Chip8Inst::ClearScreen),
+                (0x0, 0xe, 0xe) => Ok(Chip8Inst::SubReturn),
+                _ => Err(self.bad_instruction(code)),
             },
             0x1 => {
                 let n = make_usize(b, c, d);
-                Chip8Inst::Jump(n)
+                Ok(Chip8Inst::Jump(n))
+            }
+            0x2 => {
+                let n = make_usize(b, c, d);
+                Ok(Chip8Inst::SubCall(n))
+            }
+            0x3 => {
+                let n = (c << 4) | d;
+                Ok(Chip8Inst::SkipEqConst(b as usize, n))
+            }
+            0x4 => {
+                let n = (c << 4) | d;
+                Ok(Chip8Inst::SkipNeqConst(b as usize, n))
+            }
+            0x5 => {
+                if d == 0 {
+                    Ok(Chip8Inst::SkipEqReg(b as usize, c as usize))
+                } else {
+                    Err(self.bad_instruction(code))
+                }
             }
             0x6 => {
                 let n = (c << 4) | d;
-                Chip8Inst::SetRegister(b as usize, n)
+                Ok(Chip8Inst::RegSet(b as usize, n))
             }
             0x7 => {
                 let n = (c << 4) | d;
-                Chip8Inst::AddRegister(b as usize, n)
+                Ok(Chip8Inst::RegAddNoCarry(b as usize, n))
+            }
+            0x8 => match d {
+                0x0 => Ok(Chip8Inst::Assign(b as usize, c as usize)),
+                0x1 => Ok(Chip8Inst::BinOr(b as usize, c as usize)),
+                0x2 => Ok(Chip8Inst::BinAnd(b as usize, c as usize)),
+                0x3 => Ok(Chip8Inst::BinXor(b as usize, c as usize)),
+                0x4 => Ok(Chip8Inst::ArithAdd(b as usize, c as usize)),
+                0x5 => Ok(Chip8Inst::ArithSub(b as usize, c as usize)),
+                0x7 => Ok(Chip8Inst::ArithSubReverse(b as usize, c as usize)),
+                _ => Err(self.bad_instruction(code)),
+            },
+            0x9 => {
+                if d == 0 {
+                    Ok(Chip8Inst::SkipNeqReg(b as usize, c as usize))
+                } else {
+                    Err(self.bad_instruction(code))
+                }
             }
             0xa => {
                 let n = make_usize(b, c, d);
-                Chip8Inst::SetIndex(n)
+                Ok(Chip8Inst::SetIndex(n))
             }
-            _ => panic!("Invalid instruction"),
+            _ => Err(self.bad_instruction(code)), 
         }
+    }
+
+    fn bad_instruction(&self, code: u16) -> String {
+        format!("Invalid instruction at {:#010x}: {:#06x}", self.prog_counter, code)
     }
 
     fn execute(&mut self, inst: Chip8Inst) {
         match inst {
             Chip8Inst::MachineInst => (),
             Chip8Inst::ClearScreen => self.display.fill(false),
+            Chip8Inst::SubCall(n) => {
+                self.stack.push(self.prog_counter);
+                self.prog_counter = n;
+            }
+            Chip8Inst::SubReturn => match self.stack.pop() {
+                Some(n) => self.prog_counter = n,
+                None => panic!("Tried to pop an empty stack"),
+            },
             Chip8Inst::Jump(n) => self.prog_counter = n,
             Chip8Inst::SetIndex(n) => self.index_reg = n,
-            Chip8Inst::SetRegister(x, n) => self.registers[x] = n,
-            Chip8Inst::AddRegister(x, n) => {
+            Chip8Inst::RegSet(x, n) => self.registers[x] = n,
+            Chip8Inst::RegAddNoCarry(x, n) => {
                 let m = self.registers[x];
                 self.registers[x] = u8::add_no_carry(m, n);
             }
+            Chip8Inst::SkipEqConst(x, n) => {
+                if self.registers[x] == n {
+                    self.prog_counter += 2;
+                }
+            }
+            Chip8Inst::SkipNeqConst(x, n) => {
+                if self.registers[x] != n {
+                    self.prog_counter += 2;
+                }
+            }
+            Chip8Inst::SkipEqReg(x, y) => {
+                if self.registers[x] == self.registers[y] {
+                    self.prog_counter += 2;
+                }
+            }
+            Chip8Inst::SkipNeqReg(x, y) => {
+                if self.registers[x] != self.registers[y] {
+                    self.prog_counter += 2;
+                }
+            }
+            Chip8Inst::Assign(x, y) => self.registers[x] = self.registers[y],
+            Chip8Inst::BinOr(x, y) => self.registers[x] |= self.registers[y],
+            Chip8Inst::BinAnd(x, y) => self.registers[x] &= self.registers[y],
+            Chip8Inst::BinXor(x, y) => self.registers[x] ^= self.registers[y],
+            Chip8Inst::ArithAdd(x, y) => {
+                let (sum, carry) = u8::add_carry(self.registers[x], self.registers[y]);
+                self.registers[x] = sum;
+                self.registers[0xf] = if carry { 1 } else { 0 }
+            }
+            Chip8Inst::ArithSub(x, y) => {
+                let n = self.registers[x];
+                let m = self.registers[y];
+                if n > m {
+                    self.registers[x] = 0;
+                    self.registers[0xf] = 1;
+                } else {
+                    self.registers[x] = n - m;
+                    self.registers[0xf] = 0;
+                }
+            }
+            Chip8Inst::ArithSubReverse(x, y) => {
+                let n = self.registers[y];
+                let m = self.registers[x];
+                if n > m {
+                    self.registers[x] = 0;
+                    self.registers[0xf] = 1;
+                } else {
+                    self.registers[x] = n - m;
+                    self.registers[0xf] = 0;
+                }
+            }
             _ => (),
+        }
+    }
+
+    pub fn run(&mut self) {
+        loop {
+            let code = self.fetch();
+            match self.decode(code) {
+                Ok(inst) => self.execute(inst),
+                Err(e) => {
+                    println!("{}", e);
+                    break;
+                },
+            }
         }
     }
 }
