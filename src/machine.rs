@@ -1,3 +1,4 @@
+use simple_ansi::cursor;
 use std::fs::File;
 use std::io::Read;
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
@@ -62,6 +63,22 @@ impl VirtualMachine {
             sound_timer: Arc::new(AtomicU8::new(0)),
             registers: [0; 16],
         }
+    }
+
+    fn print_display(&self) {
+        cursor::home();
+        let mut display_str = String::from("");
+        for row in self.display {
+            for col in row {
+                if col {
+                    display_str.push('\u{2588}');
+                } else {
+                    display_str.push(' ');
+                }
+            }
+            display_str.push('\n');
+        }
+        println!("{}", display_str);
     }
 
     fn fetch(&mut self) -> u16 {
@@ -153,16 +170,13 @@ impl VirtualMachine {
     }
 
     fn execute(&mut self, inst: Chip8Inst) {
-        if DEBUG {
-            println!("{:?}", inst);
-        }
-
         match inst {
             Chip8Inst::MachineInst => (),
             Chip8Inst::ClearScreen => {
                 for mut row in self.display {
                     row.fill(false);
                 }
+                self.print_display();
             }
             Chip8Inst::SubCall(n) => {
                 self.stack.push(self.prog_counter);
@@ -259,23 +273,20 @@ impl VirtualMachine {
                         b & 0x1,
                     ];
                     for j in 0..8 {
-                        self.display[x-1][y-1] = bs[j] != 0;
+                        self.display[y - 1][x - 1] = bs[j] != 0;
                         x += 1;
-                        if x >= DISPLAY_COLS {
+                        if x - 2 >= DISPLAY_COLS {
                             break;
                         }
                     }
                     y += 1;
-                    if y >= DISPLAY_ROWS {
+                    if y - 2 >= DISPLAY_ROWS {
                         break;
                     }
                     x = (self.registers[x_reg] & 63) as usize;
                 }
+                self.print_display();
             }
-        }
-
-        if DEBUG {
-            println!("{:?}", self.registers);
         }
     }
 
@@ -312,12 +323,14 @@ impl VirtualMachine {
         });
 
         // fetch-decode-execute loop
+        let cpu_freq = Duration::from_nanos(250);
         for _ in 1..100 {
             let code = self.fetch();
             match self.decode(code) {
                 Ok(inst) => self.execute(inst),
                 Err(e) => panic!("{}", e),
             }
+            thread::sleep(cpu_freq);
         }
 
         run_timers.store(false, Ordering::Release);

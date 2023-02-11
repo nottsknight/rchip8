@@ -8,3 +8,4 @@ edition = "2021"
 name = "rchip8"
 
 [dependencies]
+simple_ansi = "0.1.0"

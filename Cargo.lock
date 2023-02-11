@@ -5,3 +5,12 @@ version = 3
 [[package]]
 name = "rchip8"
 version = "0.1.0"
+dependencies = [
+ "simple_ansi",
+]
+
+[[package]]
+name = "simple_ansi"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1bf324f44b55da0c780b9b684828475b61c42b40a012f0f64d2ea2ecdf5f5ce6"
