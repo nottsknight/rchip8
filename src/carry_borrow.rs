@@ -29,3 +29,20 @@ impl SubBorrow for u8 {
         }
     }
 }
+
+pub trait ShiftOverflow: Sized {
+    fn shift_left(n: Self, x: usize) -> (Self, bool);
+    fn shift_right(n: Self, x: usize) -> (Self, bool);
+}
+
+impl ShiftOverflow for u8 {
+    fn shift_left(n: u8, x: usize) -> (Self, bool) {
+        let overflow = (n & 0x80) != 0;
+        (n << x, overflow)
+    }
+
+    fn shift_right(n: Self, x: usize) -> (Self, bool) {
+       let underflow = (n & 0x1) != 0;
+       (n >> x, underflow)
+    }
+}

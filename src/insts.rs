@@ -24,6 +24,8 @@ pub enum Chip8Inst {
     ArithAdd(usize, usize),
     ArithSub(usize, usize),
     ArithSubReverse(usize, usize),
+    ShiftLeft(usize, usize),
+    ShiftRight(usize, usize),
     // Timers 
     ReadDelay(usize),
     SetDelay(usize),

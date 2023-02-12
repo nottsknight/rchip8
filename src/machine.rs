@@ -9,7 +9,7 @@ use termion::cursor;
 use termion::event::Key;
 use termion::input::TermRead;
 
-use crate::carry_borrow::{AddCarry, SubBorrow};
+use crate::carry_borrow::{AddCarry, ShiftOverflow, SubBorrow};
 use crate::hilo::HiLo;
 use crate::insts::Chip8Inst;
 
@@ -65,7 +65,7 @@ impl VirtualMachine {
     }
 
     fn print_display(&self) {
-        print!("{}", cursor::Goto(1,1));
+        print!("{}", cursor::Goto(1, 1));
 
         let mut display_str = String::from("");
         for row in self.display {
@@ -135,7 +135,9 @@ impl VirtualMachine {
                 0x3 => Ok(Chip8Inst::BinXor(b as usize, c as usize)),
                 0x4 => Ok(Chip8Inst::ArithAdd(b as usize, c as usize)),
                 0x5 => Ok(Chip8Inst::ArithSub(b as usize, c as usize)),
+                0x6 => Ok(Chip8Inst::ShiftRight(b as usize, c as usize)),
                 0x7 => Ok(Chip8Inst::ArithSubReverse(b as usize, c as usize)),
+                0xe => Ok(Chip8Inst::ShiftLeft(b as usize, c as usize)),
                 _ => Err(self.bad_instruction(code)),
             },
             0x9 => {
@@ -317,6 +319,18 @@ impl VirtualMachine {
                 let r = rand::random::<u8>();
                 self.registers[x] = n & r;
             }
+            Chip8Inst::ShiftLeft(x, y) => {
+                let n = self.registers[y];
+                let (n1, overflow) = u8::shift_left(n, 1);
+                self.registers[x] = n1;
+                self.registers[0xf] = if overflow { 1 } else { 0 };
+            }
+            Chip8Inst::ShiftRight(x, y) => {
+                let n = self.registers[y];
+                let (n1, underflow) = u8::shift_right(n, 1);
+                self.registers[x] = n1;
+                self.registers[0xf] = if underflow { 1 } else { 0 };
+            }
         }
     }
 
@@ -358,7 +372,7 @@ impl VirtualMachine {
             match self.decode(code) {
                 Ok(inst) => self.execute(inst),
                 Err(e) => {
-                    print!("{}", cursor::Goto(1,1));
+                    print!("{}", cursor::Goto(1, 1));
                     panic!("{}", e);
                 }
             }
