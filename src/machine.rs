@@ -156,6 +156,12 @@ impl VirtualMachine {
                 Ok(Chip8Inst::Random(b as usize, n))
             }
             0xd => Ok(Chip8Inst::Display(b as usize, c as usize, d)),
+            0xe => match (c, d) {
+                (0x9, 0xe) => Ok(Chip8Inst::SkipEqKey(b as usize)),
+                (0xa, 0x1) => Ok(Chip8Inst::SkipNeqKey(b as usize)),
+                (0x0, 0xa) => Ok(Chip8Inst::GetKey(b as usize)),
+                _ => Err(self.bad_instruction(code)),
+            }
             0xf => match (c, d) {
                 (0x0, 0x7) => Ok(Chip8Inst::ReadDelay(b as usize)),
                 (0x1, 0x5) => Ok(Chip8Inst::SetDelay(b as usize)),
@@ -175,7 +181,7 @@ impl VirtualMachine {
         )
     }
 
-    fn get_keydown() -> Option<u8> {
+    fn get_keydown(&self) -> Option<u8> {
         let mut keys = std::io::stdin().keys();
         let k = keys.nth(0).unwrap().unwrap();
         return match k {
@@ -330,6 +336,37 @@ impl VirtualMachine {
                 let (n1, underflow) = u8::shift_right(n, 1);
                 self.registers[x] = n1;
                 self.registers[0xf] = if underflow { 1 } else { 0 };
+            }
+            Chip8Inst::SkipEqKey(x) => {
+                match self.get_keydown() {
+                    None => (),
+                    Some(k) => {
+                        if self.registers[x] == k {
+                            self.prog_counter += 2;
+                        }
+                    }
+                }
+            }
+            Chip8Inst::SkipNeqKey(x) => {
+                match self.get_keydown() {
+                    None => (),
+                    Some(k) => {
+                        if self.registers[x] != k {
+                            self.prog_counter += 2;
+                        }
+                    }
+                }
+            }
+            Chip8Inst::GetKey(x) => {
+                loop {
+                    match self.get_keydown() {
+                        None => (),
+                        Some(k1) => {
+                            self.registers[x] = k1;
+                            break;
+                        }
+                    }
+                }
             }
         }
     }

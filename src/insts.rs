@@ -35,4 +35,8 @@ pub enum Chip8Inst {
     AddIndex(usize),
     // Random
     Random(usize, u8),
+    // Keys 
+    SkipEqKey(usize),
+    SkipNeqKey(usize),
+    GetKey(usize),
 }
