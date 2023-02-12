@@ -43,9 +43,9 @@ pub trait SubBorrow : Sized {
 impl SubBorrow for u8 {
     fn sub_borrow(x: Self, y: Self) -> (Self, bool) {
         if x < y {
-            (0, true)
+            (0, false)
         } else {
-            (x - y, false)
+            (x - y, true)
         }
     }
 }
@@ -56,12 +56,12 @@ mod sub_borrow_u8_tests {
 
     #[test]
     fn sub_no_borrow() {
-        assert_eq!(u8::sub_borrow(20, 15), (5, false));
+        assert_eq!(u8::sub_borrow(20, 15), (5, true));
     }
 
     #[test]
     fn sub_borrow() {
-        assert_eq!(u8::sub_borrow(15, 20), (0, true));
+        assert_eq!(u8::sub_borrow(15, 20), (0, false));
     }
 }
 
