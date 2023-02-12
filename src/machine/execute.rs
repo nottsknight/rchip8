@@ -33,7 +33,7 @@ impl Chip8Machine {
 
     pub(super) fn execute(&mut self, inst: Chip8Inst) {
         match inst {
-            Chip8Inst::MachineInst => (),
+            Chip8Inst::MachineInst(_) => (),
             Chip8Inst::ClearScreen => {
                 for mut row in self.display {
                     row.fill(false);

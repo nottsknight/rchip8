@@ -1,10 +1,10 @@
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Chip8Inst {
     // Display
     ClearScreen,
     Display(usize, usize, u8),
     // Subroutines and jumps
-    MachineInst,
+    MachineInst(usize),
     Jump(usize),
     SubCall(usize),
     SubReturn,

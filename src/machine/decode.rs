@@ -1,6 +1,6 @@
-use super::Chip8Machine;
-use super::insts::Chip8Inst;
 use super::hilo::HiLo;
+use super::insts::Chip8Inst;
+use super::Chip8Machine;
 
 #[inline]
 fn make_usize(x: u8, y: u8, z: u8) -> usize {
@@ -23,7 +23,10 @@ impl Chip8Machine {
             0x0 => match (b, c, d) {
                 (0x0, 0xe, 0x0) => Ok(Chip8Inst::ClearScreen),
                 (0x0, 0xe, 0xe) => Ok(Chip8Inst::SubReturn),
-                _ => Err(self.bad_instruction(code)),
+                _ => {
+                    let n = make_usize(b, c, d);
+                    Ok(Chip8Inst::MachineInst(n))
+                }
             },
             0x1 => {
                 let n = make_usize(b, c, d);
@@ -102,6 +105,32 @@ impl Chip8Machine {
                 _ => Err(self.bad_instruction(code)),
             },
             _ => Err(self.bad_instruction(code)),
+        }
+    }
+}
+
+#[cfg(test)]
+mod decode_tests {
+    use super::super::insts::Chip8Inst;
+    use super::super::Chip8Machine;
+
+    #[test]
+    fn test_decode_clear() {
+        let vm = Chip8Machine::new();
+        let code = 0x00e0;
+        match vm.decode(code) {
+            Err(_) => assert!(false),
+            Ok(inst) => assert_eq!(inst, Chip8Inst::ClearScreen),
+        }
+    }
+
+    #[test]
+    fn test_decode_subreturn() {
+        let vm = Chip8Machine::new();
+        let code = 0x00ee;
+        match vm.decode(code) {
+            Err(_) => assert!(false),
+            Ok(inst) => assert_eq!(inst, Chip8Inst::SubReturn),
         }
     }
 }
