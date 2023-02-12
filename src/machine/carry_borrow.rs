@@ -13,6 +13,26 @@ impl AddCarry for u8 {
     }
 }
 
+#[cfg(test)]
+mod add_carry_u8_tests {
+    use super::AddCarry;
+
+    #[test]
+    fn add_no_overflow() {
+        assert_eq!(u8::add_carry(22, 44), (66, false));
+    }
+
+    #[test]
+    fn add_overflow_zero() {
+        assert_eq!(u8::add_carry(0xfd, 0x3), (0, true));
+    }
+
+    #[test]
+    fn add_overflow_nonzero() {
+        assert_eq!(u8::add_carry(0xfd, 0xa), (7, true));
+    }
+}
+
 pub trait SubBorrow : Sized {
     fn sub_borrow(x: Self, y: Self) -> (Self, bool);
     fn sub_no_borrow(x: Self, y: Self) -> Self {
@@ -27,6 +47,21 @@ impl SubBorrow for u8 {
         } else {
             (x - y, false)
         }
+    }
+}
+
+#[cfg(test)]
+mod sub_borrow_u8_tests {
+    use super::SubBorrow;
+
+    #[test]
+    fn sub_no_borrow() {
+        assert_eq!(u8::sub_borrow(20, 15), (5, false));
+    }
+
+    #[test]
+    fn sub_borrow() {
+        assert_eq!(u8::sub_borrow(15, 20), (0, true));
     }
 }
 

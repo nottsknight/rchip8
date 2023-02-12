@@ -9,9 +9,12 @@ use termion::cursor;
 use termion::event::Key;
 use termion::input::TermRead;
 
-use crate::carry_borrow::{AddCarry, ShiftOverflow, SubBorrow};
-use crate::hilo::HiLo;
-use crate::insts::Chip8Inst;
+mod carry_borrow;
+use carry_borrow::{AddCarry, SubBorrow, ShiftOverflow};
+mod hilo;
+use hilo::HiLo;
+mod insts;
+use insts::Chip8Inst;
 
 const FONT: [u8; 80] = [
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
@@ -38,7 +41,7 @@ const DISPLAY_ROWS: usize = 32;
 
 const DISPLAY_COLS: usize = 64;
 
-pub struct VirtualMachine {
+pub struct Chip8Machine {
     memory: [u8; 4096],
     display: [[bool; DISPLAY_COLS]; DISPLAY_ROWS],
     prog_counter: usize,
@@ -49,12 +52,12 @@ pub struct VirtualMachine {
     registers: [u8; 16],
 }
 
-impl VirtualMachine {
-    pub fn new() -> VirtualMachine {
+impl Chip8Machine {
+    pub fn new() -> Chip8Machine {
         let mut memory_array = [0; 4096];
         memory_array[FONT_BASE..FONT_BASE+80].copy_from_slice(&FONT[..]);
 
-        VirtualMachine {
+        Chip8Machine {
             memory: memory_array,
             display: [[false; DISPLAY_COLS]; DISPLAY_ROWS],
             prog_counter: 0x200,
