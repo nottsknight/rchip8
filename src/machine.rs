@@ -32,6 +32,8 @@ const FONT: [u8; 80] = [
     0xF0, 0x80, 0xF0, 0x80, 0x80, // F
 ];
 
+const FONT_BASE: usize = 0x050;
+
 const DISPLAY_ROWS: usize = 32;
 
 const DISPLAY_COLS: usize = 64;
@@ -50,7 +52,7 @@ pub struct VirtualMachine {
 impl VirtualMachine {
     pub fn new() -> VirtualMachine {
         let mut memory_array = [0; 4096];
-        memory_array[0x050..0x0a0].copy_from_slice(&FONT[..]);
+        memory_array[FONT_BASE..FONT_BASE+80].copy_from_slice(&FONT[..]);
 
         VirtualMachine {
             memory: memory_array,
@@ -65,8 +67,6 @@ impl VirtualMachine {
     }
 
     fn print_display(&self) {
-        print!("{}", cursor::Goto(1, 1));
-
         let mut display_str = String::from("");
         for row in self.display {
             for col in row {
@@ -78,7 +78,7 @@ impl VirtualMachine {
             }
             display_str.push('\n');
         }
-        println!("{}", display_str);
+        print!("{}{}", cursor::Goto(1,1), display_str);
     }
 
     fn fetch(&mut self) -> u16 {
@@ -161,12 +161,16 @@ impl VirtualMachine {
                 (0xa, 0x1) => Ok(Chip8Inst::SkipNeqKey(b as usize)),
                 (0x0, 0xa) => Ok(Chip8Inst::GetKey(b as usize)),
                 _ => Err(self.bad_instruction(code)),
-            }
+            },
             0xf => match (c, d) {
                 (0x0, 0x7) => Ok(Chip8Inst::ReadDelay(b as usize)),
                 (0x1, 0x5) => Ok(Chip8Inst::SetDelay(b as usize)),
                 (0x1, 0x8) => Ok(Chip8Inst::SetSound(b as usize)),
                 (0x1, 0xe) => Ok(Chip8Inst::AddIndex(b as usize)),
+                (0x2, 0x9) => Ok(Chip8Inst::LoadFont(b as usize)),
+                (0x3, 0x3) => Ok(Chip8Inst::BCDConvert(b as usize)),
+                (0x5, 0x5) => Ok(Chip8Inst::StoreMem(b as usize)),
+                (0x6, 0x5) => Ok(Chip8Inst::LoadMem(b as usize)),
                 _ => Err(self.bad_instruction(code)),
             },
             _ => Err(self.bad_instruction(code)),
@@ -337,35 +341,49 @@ impl VirtualMachine {
                 self.registers[x] = n1;
                 self.registers[0xf] = if underflow { 1 } else { 0 };
             }
-            Chip8Inst::SkipEqKey(x) => {
-                match self.get_keydown() {
-                    None => (),
-                    Some(k) => {
-                        if self.registers[x] == k {
-                            self.prog_counter += 2;
-                        }
+            Chip8Inst::SkipEqKey(x) => match self.get_keydown() {
+                None => (),
+                Some(k) => {
+                    if self.registers[x] == k {
+                        self.prog_counter += 2;
                     }
                 }
-            }
-            Chip8Inst::SkipNeqKey(x) => {
-                match self.get_keydown() {
-                    None => (),
-                    Some(k) => {
-                        if self.registers[x] != k {
-                            self.prog_counter += 2;
-                        }
+            },
+            Chip8Inst::SkipNeqKey(x) => match self.get_keydown() {
+                None => (),
+                Some(k) => {
+                    if self.registers[x] != k {
+                        self.prog_counter += 2;
                     }
                 }
-            }
-            Chip8Inst::GetKey(x) => {
-                loop {
-                    match self.get_keydown() {
-                        None => (),
-                        Some(k1) => {
-                            self.registers[x] = k1;
-                            break;
-                        }
+            },
+            Chip8Inst::GetKey(x) => loop {
+                match self.get_keydown() {
+                    None => (),
+                    Some(k1) => {
+                        self.registers[x] = k1;
+                        break;
                     }
+                }
+            },
+            Chip8Inst::LoadFont(x) => {
+                let c = self.registers[x];
+                self.index_reg = FONT_BASE + c as usize;
+            }
+            Chip8Inst::BCDConvert(x) => {
+                let n = self.registers[x];
+                self.memory[self.index_reg] = n / 100;
+                self.memory[self.index_reg + 1] = (n % 100) / 10;
+                self.memory[self.index_reg + 2] = n % 10;
+            }
+            Chip8Inst::StoreMem(x) => {
+                for i in 0..x+1 {
+                    self.memory[self.index_reg + i] = self.registers[i];
+                }
+            }
+            Chip8Inst::LoadMem(x) => {
+                for i in 0..x+1 {
+                    self.registers[i] = self.memory[self.index_reg + i]
                 }
             }
         }
@@ -408,16 +426,14 @@ impl VirtualMachine {
             let code = self.fetch();
             match self.decode(code) {
                 Ok(inst) => self.execute(inst),
-                Err(e) => {
-                    print!("{}", cursor::Goto(1, 1));
-                    panic!("{}", e);
-                }
+                Err(e) => panic!("{}", e)
             }
             thread::sleep(cpu_freq);
         }
     }
 }
 
+#[inline]
 fn make_usize(x: u8, y: u8, z: u8) -> usize {
     ((x as usize) << 8) | ((y as usize) << 4) | z as usize
 }

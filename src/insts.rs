@@ -39,4 +39,9 @@ pub enum Chip8Inst {
     SkipEqKey(usize),
     SkipNeqKey(usize),
     GetKey(usize),
+    // Memory
+    LoadFont(usize),
+    BCDConvert(usize),
+    StoreMem(usize),
+    LoadMem(usize),
 }
