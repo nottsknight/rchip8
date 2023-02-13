@@ -123,7 +123,7 @@ impl Chip8Machine {
         let sound_clone = Arc::clone(&self.sound_timer);
 
         thread::spawn(move || {
-            let freq = Duration::from_nanos(16667);
+            let freq = Duration::from_nanos(16_666_667);
 
             loop {
                 let d = delay_clone.load(Ordering::Acquire);
@@ -141,7 +141,7 @@ impl Chip8Machine {
         });
 
         // fetch-decode-execute loop
-        let cpu_freq = Duration::from_nanos(250);
+        let cpu_freq = Duration::from_nanos(1_428_571);
         loop {
             let code = self.fetch();
             match self.decode(code) {
