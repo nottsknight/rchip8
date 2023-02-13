@@ -51,7 +51,14 @@ const DISPLAY_ROWS: usize = 32;
 
 const DISPLAY_COLS: usize = 64;
 
+#[derive(PartialEq, Eq)]
+pub enum Chip8Mode {
+    Original,
+    Modern
+}
+
 pub struct Chip8Machine {
+    mode: Chip8Mode,
     memory: [u8; 4096],
     display: [[bool; DISPLAY_COLS]; DISPLAY_ROWS],
     prog_counter: usize,
@@ -63,12 +70,13 @@ pub struct Chip8Machine {
 }
 
 impl Chip8Machine {
-    pub fn new() -> Chip8Machine {
-        let mut memory_array = [0; 4096];
-        memory_array[FONT_BASE..FONT_BASE + 80].copy_from_slice(&FONT[..]);
+    pub fn new(mode: Chip8Mode) -> Chip8Machine {
+        let mut memory = [0; 4096];
+        memory[FONT_BASE..FONT_BASE + 80].copy_from_slice(&FONT[..]);
 
         Chip8Machine {
-            memory: memory_array,
+            mode,
+            memory,
             display: [[false; DISPLAY_COLS]; DISPLAY_ROWS],
             prog_counter: 0x200,
             index_reg: 0,

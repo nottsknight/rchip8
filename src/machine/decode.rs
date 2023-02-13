@@ -135,11 +135,11 @@ impl Chip8Machine {
 #[cfg(test)]
 mod decode_tests {
     use super::super::insts::Chip8Inst;
-    use super::super::Chip8Machine;
+    use super::super::{Chip8Machine, Chip8Mode};
 
     macro_rules! assert_decode {
         ($code:literal, $expected:expr) => {
-            let vm = Chip8Machine::new();
+            let vm = Chip8Machine::new(Chip8Mode::Modern);
             match vm.decode($code) {
                 Err(_) => assert!(false),
                 Ok(inst) => assert_eq!(inst, $expected),
@@ -149,7 +149,7 @@ mod decode_tests {
 
     macro_rules! assert_decode_fail {
         ($code:literal) => {
-            let vm = Chip8Machine::new();
+            let vm = Chip8Machine::new(Chip8Mode::Modern);
             match vm.decode($code) {
                 Err(_) => assert!(true),
                 Ok(_) => assert!(false),

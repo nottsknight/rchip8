@@ -11,14 +11,29 @@
 // You should have received a copy of the GNU General Public License along with rchip8.
 // If not, see <https://www.gnu.org/licenses/>.
 
-use std::env;
+use clap::Parser;
 mod machine;
 
-fn main() {
-    let args: Vec<String> = env::args().collect();
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about=None)]
+struct Chip8Args {
+    /// Path to the ROM file to run
+    rom_file: String,
+    /// If supplied, run in Original mode
+    #[arg(long, short)]
+    original: bool,
+}
 
-    let mut vm = machine::Chip8Machine::new();
-    match vm.load_program(&args[1]) {
+fn main() {
+    let args = Chip8Args::parse();
+
+    let mode = if args.original {
+        machine::Chip8Mode::Original
+    } else {
+        machine::Chip8Mode::Modern
+    };
+    let mut vm = machine::Chip8Machine::new(mode);
+    match vm.load_program(&args.rom_file) {
         Ok(_) => vm.run(),
         Err(e) => panic!("{:?}", e),
     }

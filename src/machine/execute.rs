@@ -13,7 +13,7 @@
 
 use super::carry_borrow::{AddCarry, ShiftOverflow, SubBorrow};
 use super::insts::Chip8Inst;
-use super::{Chip8Machine, DISPLAY_COLS, DISPLAY_ROWS, FONT_BASE};
+use super::{Chip8Machine, Chip8Mode, DISPLAY_COLS, DISPLAY_ROWS, FONT_BASE};
 use std::sync::atomic::Ordering;
 use termion::event::Key;
 use termion::input::TermRead;
@@ -165,14 +165,18 @@ impl Chip8Machine {
                 self.registers[x] = n & r;
             }
             Chip8Inst::ShiftLeft(x, y) => {
-                let n = self.registers[y];
-                let (n1, overflow) = u8::shift_left(n, 1);
+                if self.mode == Chip8Mode::Original {
+                    self.registers[x] = self.registers[y];
+                }
+                let (n1, overflow) = u8::shift_left(self.registers[x], 1);
                 self.registers[x] = n1;
                 self.registers[0xf] = if overflow { 1 } else { 0 };
             }
             Chip8Inst::ShiftRight(x, y) => {
-                let n = self.registers[y];
-                let (n1, underflow) = u8::shift_right(n, 1);
+                if self.mode == Chip8Mode::Original {
+                    self.registers[x] = self.registers[y];
+                }
+                let (n1, underflow) = u8::shift_right(self.registers[x], 1);
                 self.registers[x] = n1;
                 self.registers[0xf] = if underflow { 1 } else { 0 };
             }
@@ -211,14 +215,22 @@ impl Chip8Machine {
                 self.memory[self.index_reg + 1] = (n % 100) / 10;
                 self.memory[self.index_reg + 2] = n % 10;
             }
-            Chip8Inst::StoreMem(x) => {
-                for i in 0..x + 1 {
+            Chip8Inst::StoreMem(x) => match self.mode {
+                Chip8Mode::Modern => for i in 0..x+1 {
                     self.memory[self.index_reg + i] = self.registers[i];
                 }
+                Chip8Mode::Original => for i in 0..x+1 {
+                    self.memory[self.index_reg] = self.registers[i];
+                    self.index_reg += 1;
+                }
             }
-            Chip8Inst::LoadMem(x) => {
-                for i in 0..x + 1 {
-                    self.registers[i] = self.memory[self.index_reg + i]
+            Chip8Inst::LoadMem(x) => match self.mode {
+                Chip8Mode::Modern => for i in 0..x+1 {
+                    self.registers[i] = self.memory[self.index_reg + i];
+                }
+                Chip8Mode::Original => for i in 0..x+1 {
+                    self.registers[i] = self.memory[self.index_reg];
+                    self.index_reg += 1;
                 }
             }
         }
@@ -228,11 +240,11 @@ impl Chip8Machine {
 #[cfg(test)]
 mod execute_tests {
     use super::super::insts::Chip8Inst;
-    use super::super::Chip8Machine;
+    use super::super::{Chip8Machine, Chip8Mode};
 
     #[test]
     fn test_execute_shift_left_no_overflow() {
-        let mut vm = Chip8Machine::new();
+        let mut vm = Chip8Machine::new(Chip8Mode::Modern);
         vm.registers[0x2] = 5;
         vm.registers[0xa] = 0x71;
         vm.execute(Chip8Inst::ShiftLeft(0x2, 0xa));
@@ -244,7 +256,7 @@ mod execute_tests {
 
     #[test]
     fn test_execute_shift_left_overflow() {
-        let mut vm = Chip8Machine::new();
+        let mut vm = Chip8Machine::new(Chip8Mode::Modern);
         vm.registers[0x2] = 0xaa;
         vm.registers[0xa] = 0xe3;
         vm.execute(Chip8Inst::ShiftLeft(0x2, 0xa));
@@ -256,7 +268,7 @@ mod execute_tests {
 
     #[test]
     fn test_execute_shift_right_no_underflow() {
-        let mut vm = Chip8Machine::new();
+        let mut vm = Chip8Machine::new(Chip8Mode::Modern);
         vm.registers[0x2] = 5;
         vm.registers[0xa] = 0x72;
         vm.execute(Chip8Inst::ShiftRight(0x2, 0xa));
@@ -268,7 +280,7 @@ mod execute_tests {
 
     #[test]
     fn test_execute_shift_right_underflow() {
-        let mut vm = Chip8Machine::new();
+        let mut vm = Chip8Machine::new(Chip8Mode::Modern);
         vm.registers[0x2] = 5;
         vm.registers[0xa] = 0x71;
         vm.execute(Chip8Inst::ShiftRight(0x2, 0xa));
