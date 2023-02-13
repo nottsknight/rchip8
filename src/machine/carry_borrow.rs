@@ -46,7 +46,7 @@ mod add_carry_u8_tests {
     }
 }
 
-pub trait SubBorrow : Sized {
+pub trait SubBorrow: Sized {
     fn sub_borrow(x: Self, y: Self) -> (Self, bool);
     fn sub_no_borrow(x: Self, y: Self) -> Self {
         Self::sub_borrow(x, y).0
@@ -90,7 +90,40 @@ impl ShiftOverflow for u8 {
     }
 
     fn shift_right(n: Self, x: usize) -> (Self, bool) {
-       let underflow = (n & 0x1) != 0;
-       (n >> x, underflow)
+        let underflow = (n & 0x1) != 0;
+        (n >> x, underflow)
+    }
+}
+
+#[cfg(test)]
+mod shift_overflow_u8_tests {
+    use super::ShiftOverflow;
+
+    #[test]
+    fn test_shift_left_no_overflow() {
+        let (n, overflow) = u8::shift_left(0x71, 1);
+        assert_eq!(n, 0xe2);
+        assert!(!overflow);
+    }
+
+    #[test]
+    fn test_shift_left_overflow() {
+        let (n, overflow) = u8::shift_left(0xe2, 1);
+        assert_eq!(n, 0xc4);
+        assert!(overflow);
+    }
+
+    #[test]
+    fn test_shift_right_no_underflow() {
+        let (n, underflow) = u8::shift_right(0xe2, 1);
+        assert_eq!(n, 0x71);
+        assert!(!underflow);
+    }
+
+    #[test]
+    fn test_shift_right_underflow() {
+       let (n, underflow) = u8::shift_right(0xe1, 1);
+       assert_eq!(n, 0x70);
+       assert!(underflow);
     }
 }
