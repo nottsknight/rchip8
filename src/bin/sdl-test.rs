@@ -1,6 +1,7 @@
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
+use sdl2::rect::Rect;
 use std::thread;
 use std::time::Duration;
 
@@ -15,8 +16,12 @@ fn main() {
         .unwrap();
 
     let mut canvas = window.into_canvas().build().unwrap();
-    canvas.set_draw_color(Color::RGB(0, 255, 255));
+    canvas.set_draw_color(Color::RGB(0, 0, 0));
     canvas.clear();
+    
+    let r = Rect::new(25, 25, 10, 10);
+    canvas.set_draw_color(Color::RGB(255, 255, 255));
+    canvas.fill_rect(r).unwrap();
     canvas.present();
 
     let mut events = sdl_context.event_pump().unwrap();
