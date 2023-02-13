@@ -7,6 +7,16 @@ fn make_usize(x: u8, y: u8, z: u8) -> usize {
     ((x as usize) << 8) | ((y as usize) << 4) | z as usize
 }
 
+#[cfg(test)]
+mod make_usize_tests {
+    use super::make_usize;
+
+    #[test]
+    fn test_make_usize() {
+        assert_eq!(make_usize(0xa, 0xf, 0xb), 0x0afb);
+    }
+}
+
 impl Chip8Machine {
     fn bad_instruction(&self, code: u16) -> String {
         format!(
@@ -114,23 +124,53 @@ mod decode_tests {
     use super::super::insts::Chip8Inst;
     use super::super::Chip8Machine;
 
+    macro_rules! assert_decode {
+        ($code:literal, $expected:expr) => {
+            let vm = Chip8Machine::new();
+            match vm.decode($code) {
+                Err(_) => assert!(false),
+                Ok(inst) => assert_eq!(inst, $expected),
+            }
+        };
+    }
+
+    macro_rules! assert_decode_fail {
+        ($code:literal) => {
+            let vm = Chip8Machine::new();
+            match vm.decode($code) {
+                Err(_) => assert!(true),
+                Ok(_) => assert!(false),
+            }
+        };
+    }
+
     #[test]
     fn test_decode_clear() {
-        let vm = Chip8Machine::new();
-        let code = 0x00e0;
-        match vm.decode(code) {
-            Err(_) => assert!(false),
-            Ok(inst) => assert_eq!(inst, Chip8Inst::ClearScreen),
-        }
+        assert_decode!(0x0e0, Chip8Inst::ClearScreen);
     }
 
     #[test]
     fn test_decode_subreturn() {
-        let vm = Chip8Machine::new();
-        let code = 0x00ee;
-        match vm.decode(code) {
-            Err(_) => assert!(false),
-            Ok(inst) => assert_eq!(inst, Chip8Inst::SubReturn),
-        }
+        assert_decode!(0x00ee, Chip8Inst::SubReturn);
+    }
+
+    #[test]
+    fn test_decode_machine_inst() {
+        assert_decode!(0x0211, Chip8Inst::MachineInst(0x211));
+    }
+
+    #[test]
+    fn test_decode_jump() {
+        assert_decode!(0x1d2a, Chip8Inst::Jump(0xd2a));
+    }
+
+    #[test]
+    fn test_decode_sub_call() {
+        assert_decode!(0x2987, Chip8Inst::SubCall(0x987));
+    }
+
+    #[test]
+    fn test_decode_skip_eq_const() {
+        assert_decode!(0x3b3a, Chip8Inst::SkipEqConst(0xb, 0x3a));
     }
 }
