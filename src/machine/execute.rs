@@ -203,7 +203,7 @@ impl Chip8Machine {
             },
             Chip8Inst::LoadFont(x) => {
                 let c = self.registers[x];
-                self.index_reg = FONT_BASE + c as usize;
+                self.index_reg = FONT_BASE + (5 * c) as usize;
             }
             Chip8Inst::BCDConvert(x) => {
                 let n = self.registers[x];

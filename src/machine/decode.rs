@@ -159,7 +159,7 @@ mod decode_tests {
 
     #[test]
     fn test_decode_clear() {
-        assert_decode!(0x0e0, Chip8Inst::ClearScreen);
+        assert_decode!(0x00e0, Chip8Inst::ClearScreen);
     }
 
     #[test]
@@ -185,5 +185,20 @@ mod decode_tests {
     #[test]
     fn test_decode_skip_eq_const() {
         assert_decode!(0x3b3a, Chip8Inst::SkipEqConst(0xb, 0x3a));
+    }
+
+    #[test]
+    fn test_decode_skip_neq_const() {
+        assert_decode!(0x42f1, Chip8Inst::SkipNeqConst(0x2, 0xf1));
+    }
+
+    #[test]
+    fn test_decode_skip_eq_reg_ok() {
+        assert_decode!(0x5d30, Chip8Inst::SkipEqReg(0xd, 0x3));
+    }
+
+    #[test]
+    fn test_decode_0x5_nok() {
+        assert_decode_fail!(0x5d31);
     }
 }
