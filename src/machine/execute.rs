@@ -48,7 +48,8 @@ impl Chip8Machine {
         match inst {
             Chip8Inst::MachineInst(_) => (),
             Chip8Inst::ClearScreen => {
-                for mut row in self.display {
+                let display = self.display.lock().unwrap();
+                for mut row in *display {
                     row.fill(false);
                 }
                 self.print_display();
@@ -141,10 +142,11 @@ impl Chip8Machine {
                         b & 0x1,
                     ];
                     for j in 0..8 {
-                        if self.display[y - 1][x - 1] && bs[j] != 0 {
-                            self.display[y - 1][x - 1] = false;
-                        } else if !self.display[y - 1][x - 1] && bs[j] != 0 {
-                            self.display[y - 1][x - 1] = true;
+                        let mut display = self.display.lock().unwrap();
+                        if display[y - 1][x - 1] && bs[j] != 0 {
+                            display[y - 1][x - 1] = false;
+                        } else if !display[y - 1][x - 1] && bs[j] != 0 {
+                            display[y - 1][x - 1] = true;
                         }
 
                         x += 1;

@@ -14,7 +14,7 @@
 use std::fs::File;
 use std::io::Read;
 use std::sync::atomic::{AtomicU8, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 use termion::clear;
@@ -25,6 +25,7 @@ mod decode;
 mod execute;
 mod hilo;
 mod insts;
+mod display;
 
 const FONT: [u8; 80] = [
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
@@ -60,7 +61,7 @@ pub enum Chip8Mode {
 pub struct Chip8Machine {
     mode: Chip8Mode,
     memory: [u8; 4096],
-    display: [[bool; DISPLAY_COLS]; DISPLAY_ROWS],
+    display: Arc<Mutex<[[bool; DISPLAY_COLS]; DISPLAY_ROWS]>>,
     prog_counter: usize,
     index_reg: usize,
     stack: Vec<usize>,
@@ -77,7 +78,7 @@ impl Chip8Machine {
         Chip8Machine {
             mode,
             memory,
-            display: [[false; DISPLAY_COLS]; DISPLAY_ROWS],
+            display: Arc::new(Mutex::new([[false; DISPLAY_COLS]; DISPLAY_ROWS])),
             prog_counter: 0x200,
             index_reg: 0,
             stack: Vec::new(),
@@ -89,7 +90,8 @@ impl Chip8Machine {
 
     fn print_display(&self) {
         let mut display_str = String::from("");
-        for row in self.display {
+        let grid = self.display.lock().unwrap();
+        for row in *grid {
             for col in row {
                 if col {
                     display_str.push('\u{2588}');
@@ -139,6 +141,8 @@ impl Chip8Machine {
                 thread::sleep(freq);
             }
         });
+
+        self.run_display();
 
         // fetch-decode-execute loop
         let cpu_freq = Duration::from_nanos(1_428_571);
