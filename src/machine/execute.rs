@@ -224,3 +224,57 @@ impl Chip8Machine {
         }
     }
 }
+
+#[cfg(test)]
+mod execute_tests {
+    use super::super::insts::Chip8Inst;
+    use super::super::Chip8Machine;
+
+    #[test]
+    fn test_execute_shift_left_no_overflow() {
+        let mut vm = Chip8Machine::new();
+        vm.registers[0x2] = 5;
+        vm.registers[0xa] = 0x71;
+        vm.execute(Chip8Inst::ShiftLeft(0x2, 0xa));
+
+        assert_eq!(vm.registers[0x2], 0xe2);
+        assert_eq!(vm.registers[0xa], 0x71);
+        assert_eq!(vm.registers[0xf], 0);
+    }
+
+    #[test]
+    fn test_execute_shift_left_overflow() {
+        let mut vm = Chip8Machine::new();
+        vm.registers[0x2] = 0xaa;
+        vm.registers[0xa] = 0xe3;
+        vm.execute(Chip8Inst::ShiftLeft(0x2, 0xa));
+
+        assert_eq!(vm.registers[0x2], 0xc6);
+        assert_eq!(vm.registers[0xa], 0xe3);
+        assert_eq!(vm.registers[0xf], 1);
+    }
+
+    #[test]
+    fn test_execute_shift_right_no_underflow() {
+        let mut vm = Chip8Machine::new();
+        vm.registers[0x2] = 5;
+        vm.registers[0xa] = 0x72;
+        vm.execute(Chip8Inst::ShiftRight(0x2, 0xa));
+
+        assert_eq!(vm.registers[0x2], 0x39);
+        assert_eq!(vm.registers[0xa], 0x72);
+        assert_eq!(vm.registers[0xf], 0);
+    }
+
+    #[test]
+    fn test_execute_shift_right_underflow() {
+        let mut vm = Chip8Machine::new();
+        vm.registers[0x2] = 5;
+        vm.registers[0xa] = 0x71;
+        vm.execute(Chip8Inst::ShiftRight(0x2, 0xa));
+
+        assert_eq!(vm.registers[0x2], 0x38);
+        assert_eq!(vm.registers[0xa], 0x71);
+        assert_eq!(vm.registers[0xf], 1);
+    }
+}
