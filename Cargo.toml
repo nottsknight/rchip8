@@ -9,3 +9,4 @@ edition = "2021"
 rand = "0.8.5"
 termion = "2.0.1"
 clap = { version = "4.1.4", features = ["derive"] }
+sdl2 = { version = "0.35.2", features = ["bundled", "static-link"] }
