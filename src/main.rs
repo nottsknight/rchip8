@@ -19,7 +19,7 @@ mod machine;
 struct Chip8Args {
     /// Path to the ROM file to run
     rom_file: String,
-    /// If supplied, run in Original mode
+    /// Run in original mode
     #[arg(long, short)]
     original: bool,
 }
