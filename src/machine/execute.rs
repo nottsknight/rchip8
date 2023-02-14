@@ -15,7 +15,6 @@ use super::carry_borrow::{AddCarry, ShiftOverflow, SubBorrow};
 use super::insts::Chip8Inst;
 use super::{Chip8Machine, Chip8Mode, DISPLAY_COLS, DISPLAY_ROWS, FONT_BASE};
 use std::io::stdin;
-use std::sync::atomic::Ordering;
 use termion::event::Key;
 use termion::input::TermRead;
 
@@ -114,14 +113,14 @@ impl Chip8Machine {
                 self.registers[0xf] = if borrow { 1 } else { 0 }
             }
             Chip8Inst::ReadDelay(x) => {
-                let n = self.delay_timer.load(Ordering::Acquire);
+                let n = self.timers.read_delay();
                 self.registers[x] = n;
             }
             Chip8Inst::SetDelay(x) => {
-                self.delay_timer.store(self.registers[x], Ordering::Release);
+                self.timers.set_delay(self.registers[x]);
             }
             Chip8Inst::SetSound(x) => {
-                self.sound_timer.store(self.registers[x], Ordering::Release);
+                self.timers.set_sound(self.registers[x]);
             }
             Chip8Inst::Display(x_reg, y_reg, n) => {
                 let mut x = (self.registers[x_reg] & 63) as usize;

@@ -13,18 +13,19 @@
 
 use std::fs::File;
 use std::io::Read;
-use std::sync::atomic::{AtomicU8, Ordering};
-use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 use termion::clear;
 use termion::cursor;
+
+use self::timers::Chip8Timers;
 
 mod carry_borrow;
 mod decode;
 mod execute;
 mod hilo;
 mod insts;
+mod timers;
 
 const FONT: [u8; 80] = [
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
@@ -51,10 +52,14 @@ const DISPLAY_ROWS: usize = 32;
 
 const DISPLAY_COLS: usize = 64;
 
+const FREQ_60HZ: u64 = 1_000_000_000 / 60;
+
+const FREQ_1MHZ: u64 = 1_000_000_000 / 1000;
+
 #[derive(PartialEq, Eq)]
 pub enum Chip8Mode {
     Original,
-    Modern
+    Modern,
 }
 
 pub struct Chip8Machine {
@@ -64,8 +69,7 @@ pub struct Chip8Machine {
     prog_counter: usize,
     index_reg: usize,
     stack: Vec<usize>,
-    delay_timer: Arc<AtomicU8>,
-    sound_timer: Arc<AtomicU8>,
+    timers: Chip8Timers,
     registers: [u8; 16],
 }
 
@@ -81,8 +85,7 @@ impl Chip8Machine {
             prog_counter: 0x200,
             index_reg: 0,
             stack: Vec::new(),
-            delay_timer: Arc::new(AtomicU8::new(0)),
-            sound_timer: Arc::new(AtomicU8::new(0)),
+            timers: Chip8Timers::init(),
             registers: [0; 16],
         }
     }
@@ -119,29 +122,10 @@ impl Chip8Machine {
         print!("{}{}", clear::All, cursor::Goto(1, 1));
 
         // start timers
-        let delay_clone = Arc::clone(&self.delay_timer);
-        let sound_clone = Arc::clone(&self.sound_timer);
-
-        thread::spawn(move || {
-            let freq = Duration::from_nanos(16_666_667);
-
-            loop {
-                let d = delay_clone.load(Ordering::Acquire);
-                if d > 0 {
-                    delay_clone.store(d - 1, Ordering::Release);
-                }
-
-                let d = sound_clone.load(Ordering::Acquire);
-                if d > 0 {
-                    sound_clone.store(d - 1, Ordering::Release);
-                }
-
-                thread::sleep(freq);
-            }
-        });
+        self.timers.start();
 
         // fetch-decode-execute loop
-        let cpu_freq = Duration::from_nanos(1_428_571);
+        let cpu_freq = Duration::from_nanos(FREQ_1MHZ);
         loop {
             let code = self.fetch();
             match self.decode(code) {
