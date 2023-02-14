@@ -19,6 +19,7 @@ use termion::clear;
 use termion::cursor;
 
 use self::timers::Chip8Timers;
+use self::display::Chip8Display;
 
 mod carry_borrow;
 mod decode;
@@ -26,6 +27,7 @@ mod execute;
 mod hilo;
 mod insts;
 mod timers;
+mod display;
 
 const FONT: [u8; 80] = [
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
@@ -46,11 +48,11 @@ const FONT: [u8; 80] = [
     0xF0, 0x80, 0xF0, 0x80, 0x80, // F
 ];
 
+const DISPLAY_HEIGHT: usize = 32;
+
+const DISPLAY_WIDTH: usize = 64;
+
 const FONT_BASE: usize = 0x050;
-
-const DISPLAY_ROWS: usize = 32;
-
-const DISPLAY_COLS: usize = 64;
 
 const FREQ_60HZ: u64 = 1_000_000_000 / 60;
 
@@ -65,7 +67,7 @@ pub enum Chip8Mode {
 pub struct Chip8Machine {
     mode: Chip8Mode,
     memory: [u8; 4096],
-    display: [[bool; DISPLAY_COLS]; DISPLAY_ROWS],
+    display: Chip8Display,
     prog_counter: usize,
     index_reg: usize,
     stack: Vec<usize>,
@@ -81,28 +83,13 @@ impl Chip8Machine {
         Chip8Machine {
             mode,
             memory,
-            display: [[false; DISPLAY_COLS]; DISPLAY_ROWS],
+            display: Chip8Display::init(),
             prog_counter: 0x200,
             index_reg: 0,
             stack: Vec::new(),
             timers: Chip8Timers::init(),
             registers: [0; 16],
         }
-    }
-
-    fn print_display(&self) {
-        let mut display_str = String::from("");
-        for row in self.display {
-            for col in row {
-                if col {
-                    display_str.push('\u{2588}');
-                } else {
-                    display_str.push(' ');
-                }
-            }
-            display_str.push('\n');
-        }
-        print!("{}{}", cursor::Goto(1, 1), display_str);
     }
 
     fn fetch(&mut self) -> u16 {

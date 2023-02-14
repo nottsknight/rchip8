@@ -13,7 +13,7 @@
 
 use super::carry_borrow::{AddCarry, ShiftOverflow, SubBorrow};
 use super::insts::Chip8Inst;
-use super::{Chip8Machine, Chip8Mode, DISPLAY_COLS, DISPLAY_ROWS, FONT_BASE};
+use super::{Chip8Machine, Chip8Mode, DISPLAY_HEIGHT, DISPLAY_WIDTH, FONT_BASE};
 use std::io::stdin;
 use termion::event::Key;
 use termion::input::TermRead;
@@ -47,10 +47,8 @@ impl Chip8Machine {
         match inst {
             Chip8Inst::MachineInst(_) => (),
             Chip8Inst::ClearScreen => {
-                for mut row in self.display {
-                    row.fill(false);
-                }
-                self.print_display();
+                self.display.clear();
+                self.display.draw();
             }
             Chip8Inst::SubCall(n) => {
                 self.stack.push(self.prog_counter);
@@ -127,37 +125,27 @@ impl Chip8Machine {
                 let mut y = (self.registers[y_reg] & 31) as usize;
                 self.registers[0xf] = 0;
 
-                for i in 0..n {
+                'rows: for i in 0..n {
                     let b = self.memory[self.index_reg + i as usize];
-                    let bs = [
-                        b & 0x80,
-                        b & 0x40,
-                        b & 0x20,
-                        b & 0x10,
-                        b & 0x8,
-                        b & 0x4,
-                        b & 0x2,
-                        b & 0x1,
-                    ];
-                    for j in 0..8 {
-                        if self.display[y - 1][x - 1] && bs[j] != 0 {
-                            self.display[y - 1][x - 1] = false;
-                        } else if !self.display[y - 1][x - 1] && bs[j] != 0 {
-                            self.display[y - 1][x - 1] = true;
+                    'cols: for j in 0..8 {
+                        let px = b & (0x1 << (7 - j));
+                        if self.display.update_pixel(x - 1, y - 1, px != 0) {
+                            self.registers[0xf] = 1;
                         }
 
                         x += 1;
-                        if x - 2 >= DISPLAY_COLS {
-                            break;
+                        if x - 1 >= DISPLAY_WIDTH {
+                            break 'cols;
                         }
                     }
+
                     y += 1;
-                    if y - 2 >= DISPLAY_ROWS {
-                        break;
+                    if y - 1 >= DISPLAY_HEIGHT {
+                        break 'rows;
                     }
                     x = (self.registers[x_reg] & 63) as usize;
                 }
-                self.print_display();
+                self.display.draw();
             }
             Chip8Inst::Random(x, n) => {
                 let r = rand::random::<u8>();
