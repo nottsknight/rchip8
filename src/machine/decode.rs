@@ -11,7 +11,7 @@
 // You should have received a copy of the GNU General Public License along with rchip8.
 // If not, see <https://www.gnu.org/licenses/>.
 
-use super::hilo::HiLo;
+use super::utils::hilo::HiLo;
 use super::insts::Chip8Inst;
 use super::Chip8Machine;
 

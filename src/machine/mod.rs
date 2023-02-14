@@ -21,10 +21,9 @@ use termion::cursor;
 use self::timers::Chip8Timers;
 use self::display::Chip8Display;
 
-mod carry_borrow;
+mod utils;
 mod decode;
 mod execute;
-mod hilo;
 mod insts;
 mod timers;
 mod display;

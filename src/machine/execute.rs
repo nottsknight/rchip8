@@ -11,8 +11,8 @@
 // You should have received a copy of the GNU General Public License along with rchip8.
 // If not, see <https://www.gnu.org/licenses/>.
 
-use super::carry_borrow::{AddCarry, ShiftOverflow, SubBorrow};
 use super::insts::Chip8Inst;
+use super::utils::carry_borrow::{AddCarry, ShiftOverflow, SubBorrow};
 use super::{Chip8Machine, Chip8Mode, DISPLAY_HEIGHT, DISPLAY_WIDTH, FONT_BASE};
 use std::io::stdin;
 use termion::event::Key;
