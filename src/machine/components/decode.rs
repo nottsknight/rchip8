@@ -11,9 +11,7 @@
 // You should have received a copy of the GNU General Public License along with rchip8.
 // If not, see <https://www.gnu.org/licenses/>.
 
-use super::utils::hilo::HiLo;
-use super::insts::Chip8Inst;
-use super::Chip8Machine;
+use crate::machine::{insts::Chip8Inst, utils::hilo::HiLo, vm::Chip8Machine};
 
 #[inline]
 fn make_usize(x: u8, y: u8, z: u8) -> usize {
@@ -39,7 +37,7 @@ impl Chip8Machine {
         )
     }
 
-    pub(super) fn decode(&self, code: u16) -> Result<Chip8Inst, String> {
+    pub(in crate::machine) fn decode(&self, code: u16) -> Result<Chip8Inst, String> {
         let (a, b) = code.hi().split();
         let (c, d) = code.lo().split();
         match a {
@@ -134,8 +132,10 @@ impl Chip8Machine {
 
 #[cfg(test)]
 mod decode_tests {
-    use super::super::insts::Chip8Inst;
-    use super::super::{Chip8Machine, Chip8Mode};
+    use crate::machine::{
+        insts::Chip8Inst,
+        vm::{Chip8Machine, Chip8Mode},
+    };
 
     macro_rules! assert_decode {
         ($code:literal, $expected:expr) => {

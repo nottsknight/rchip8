@@ -39,7 +39,7 @@ pub enum Chip8Inst {
     ArithSubReverse(usize, usize),
     ShiftLeft(usize, usize),
     ShiftRight(usize, usize),
-    // Timers 
+    // Timers
     ReadDelay(usize),
     SetDelay(usize),
     SetSound(usize),
@@ -48,7 +48,7 @@ pub enum Chip8Inst {
     AddIndex(usize),
     // Random
     Random(usize, u8),
-    // Keys 
+    // Keys
     SkipEqKey(usize),
     SkipNeqKey(usize),
     GetKey(usize),

@@ -12,7 +12,9 @@
 // If not, see <https://www.gnu.org/licenses/>.
 
 use clap::Parser;
+
 mod machine;
+use machine::vm::{Chip8Machine, Chip8Mode};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about=None)]
@@ -28,11 +30,11 @@ fn main() {
     let args = Chip8Args::parse();
 
     let mode = if args.original {
-        machine::Chip8Mode::Original
+        Chip8Mode::Original
     } else {
-        machine::Chip8Mode::Modern
+        Chip8Mode::Modern
     };
-    let mut vm = machine::Chip8Machine::new(mode);
+    let mut vm = Chip8Machine::new(mode);
     match vm.load_program(&args.rom_file) {
         Ok(_) => vm.run(),
         Err(e) => panic!("{:?}", e),

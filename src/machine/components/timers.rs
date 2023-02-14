@@ -17,7 +17,7 @@ use std::{
     time::Duration,
 };
 
-use super::FREQ_60HZ;
+use crate::machine::FREQ_60HZ;
 
 pub struct Chip8Timers {
     delay_timer: Arc<Mutex<u8>>,

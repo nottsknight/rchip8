@@ -1,4 +1,4 @@
-use super::{DISPLAY_HEIGHT, DISPLAY_WIDTH};
+use crate::machine::{DISPLAY_HEIGHT, DISPLAY_WIDTH};
 use termion::cursor;
 
 pub struct Chip8Display {

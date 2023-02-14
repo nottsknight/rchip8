@@ -11,9 +11,12 @@
 // You should have received a copy of the GNU General Public License along with rchip8.
 // If not, see <https://www.gnu.org/licenses/>.
 
-use super::insts::Chip8Inst;
-use super::utils::carry_borrow::{AddCarry, ShiftOverflow, SubBorrow};
-use super::{Chip8Machine, Chip8Mode, DISPLAY_HEIGHT, DISPLAY_WIDTH, FONT_BASE};
+use crate::machine::{
+    insts::Chip8Inst,
+    utils::carry_borrow::*,
+    vm::{Chip8Machine, Chip8Mode},
+    DISPLAY_HEIGHT, DISPLAY_WIDTH, FONT_BASE,
+};
 use std::io::stdin;
 use termion::event::Key;
 use termion::input::TermRead;
@@ -43,7 +46,7 @@ impl Chip8Machine {
         };
     }
 
-    pub(super) fn execute(&mut self, inst: Chip8Inst) {
+    pub(in crate::machine) fn execute(&mut self, inst: Chip8Inst) {
         match inst {
             Chip8Inst::MachineInst(_) => (),
             Chip8Inst::ClearScreen => {
@@ -234,8 +237,10 @@ impl Chip8Machine {
 
 #[cfg(test)]
 mod execute_tests {
-    use super::super::insts::Chip8Inst;
-    use super::super::{Chip8Machine, Chip8Mode};
+    use crate::machine::{
+        insts::Chip8Inst,
+        vm::{Chip8Machine, Chip8Mode},
+    };
 
     #[test]
     fn test_execute_shift_left_no_overflow_original() {
