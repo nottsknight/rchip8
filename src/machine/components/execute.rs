@@ -132,7 +132,7 @@ impl Chip8Machine {
                     let b = self.memory[self.index_reg + i as usize];
                     'cols: for j in 0..8 {
                         let px = b & (0x1 << (7 - j));
-                        if self.display.update_pixel(x - 1, y - 1, px != 0) {
+                        if self.display.update_pixel(x, y, px != 0) {
                             self.registers[0xf] = 1;
                         }
 
