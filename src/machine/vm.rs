@@ -4,7 +4,6 @@ use std::fs::File;
 use std::io::Read;
 use std::thread;
 use std::time::Duration;
-use termion::{clear, cursor};
 
 #[derive(PartialEq, Eq)]
 pub enum Chip8Mode {
@@ -54,10 +53,11 @@ impl Chip8Machine {
     }
 
     pub fn run(&mut self) {
-        print!("{}{}", clear::All, cursor::Goto(1, 1));
-
         // start timers
         self.timers.start();
+
+        // start display
+        self.display.start();
 
         // fetch-decode-execute loop
         let cpu_freq = Duration::from_nanos(FREQ_1MHZ);

@@ -50,8 +50,8 @@ impl Chip8Machine {
         match inst {
             Chip8Inst::MachineInst(_) => (),
             Chip8Inst::ClearScreen => {
-               self.display.clear();
-                self.display.draw();
+                self.display.clear();
+                self.display.redraw();
             }
             Chip8Inst::SubCall(n) => {
                 self.stack.push(self.prog_counter);
@@ -130,7 +130,7 @@ impl Chip8Machine {
 
                 'rows: for i in 0..n {
                     let b = self.memory[self.index_reg + i as usize];
-                   'cols: for j in 0..8 {
+                    'cols: for j in 0..8 {
                         let px = b & (0x1 << (7 - j));
                         if self.display.update_pixel(x - 1, y - 1, px != 0) {
                             self.registers[0xf] = 1;
@@ -148,7 +148,7 @@ impl Chip8Machine {
                     }
                     x = (self.registers[x_reg] & 63) as usize;
                 }
-                self.display.draw();
+                self.display.redraw();
             }
             Chip8Inst::Random(x, n) => {
                 let r = rand::random::<u8>();
