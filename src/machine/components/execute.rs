@@ -11,11 +11,13 @@
 // You should have received a copy of the GNU General Public License along with rchip8.
 // If not, see <https://www.gnu.org/licenses/>.
 
-use super::carry_borrow::{AddCarry, ShiftOverflow, SubBorrow};
-use super::insts::Chip8Inst;
-use super::{Chip8Machine, Chip8Mode, DISPLAY_COLS, DISPLAY_ROWS, FONT_BASE};
+use crate::machine::{
+    insts::Chip8Inst,
+    utils::carry_borrow::*,
+    vm::{Chip8Machine, Chip8Mode},
+    DISPLAY_HEIGHT, DISPLAY_WIDTH, FONT_BASE,
+};
 use std::io::stdin;
-use std::sync::atomic::Ordering;
 use termion::event::Key;
 use termion::input::TermRead;
 
@@ -44,15 +46,12 @@ impl Chip8Machine {
         };
     }
 
-    pub(super) fn execute(&mut self, inst: Chip8Inst) {
+    pub(in crate::machine) fn execute(&mut self, inst: Chip8Inst) {
         match inst {
             Chip8Inst::MachineInst(_) => (),
             Chip8Inst::ClearScreen => {
-                let display = self.display.lock().unwrap();
-                for mut row in *display {
-                    row.fill(false);
-                }
-                self.print_display();
+               self.display.clear();
+                self.display.draw();
             }
             Chip8Inst::SubCall(n) => {
                 self.stack.push(self.prog_counter);
@@ -115,52 +114,41 @@ impl Chip8Machine {
                 self.registers[0xf] = if borrow { 1 } else { 0 }
             }
             Chip8Inst::ReadDelay(x) => {
-                let n = self.delay_timer.load(Ordering::Acquire);
+                let n = self.timers.read_delay();
                 self.registers[x] = n;
             }
             Chip8Inst::SetDelay(x) => {
-                self.delay_timer.store(self.registers[x], Ordering::Release);
+                self.timers.set_delay(self.registers[x]);
             }
             Chip8Inst::SetSound(x) => {
-                self.sound_timer.store(self.registers[x], Ordering::Release);
+                self.timers.set_sound(self.registers[x]);
             }
             Chip8Inst::Display(x_reg, y_reg, n) => {
                 let mut x = (self.registers[x_reg] & 63) as usize;
                 let mut y = (self.registers[y_reg] & 31) as usize;
                 self.registers[0xf] = 0;
 
-                for i in 0..n {
+                'rows: for i in 0..n {
                     let b = self.memory[self.index_reg + i as usize];
-                    let bs = [
-                        b & 0x80,
-                        b & 0x40,
-                        b & 0x20,
-                        b & 0x10,
-                        b & 0x8,
-                        b & 0x4,
-                        b & 0x2,
-                        b & 0x1,
-                    ];
-                    for j in 0..8 {
-                        let mut display = self.display.lock().unwrap();
-                        if display[y - 1][x - 1] && bs[j] != 0 {
-                            display[y - 1][x - 1] = false;
-                        } else if !display[y - 1][x - 1] && bs[j] != 0 {
-                            display[y - 1][x - 1] = true;
+                   'cols: for j in 0..8 {
+                        let px = b & (0x1 << (7 - j));
+                        if self.display.update_pixel(x - 1, y - 1, px != 0) {
+                            self.registers[0xf] = 1;
                         }
 
                         x += 1;
-                        if x - 2 >= DISPLAY_COLS {
-                            break;
+                        if x - 1 >= DISPLAY_WIDTH {
+                            break 'cols;
                         }
                     }
+
                     y += 1;
-                    if y - 2 >= DISPLAY_ROWS {
-                        break;
+                    if y - 1 >= DISPLAY_HEIGHT {
+                        break 'rows;
                     }
                     x = (self.registers[x_reg] & 63) as usize;
                 }
-                self.print_display();
+                self.display.draw();
             }
             Chip8Inst::Random(x, n) => {
                 let r = rand::random::<u8>();
@@ -249,8 +237,10 @@ impl Chip8Machine {
 
 #[cfg(test)]
 mod execute_tests {
-    use super::super::insts::Chip8Inst;
-    use super::super::{Chip8Machine, Chip8Mode};
+    use crate::machine::{
+        insts::Chip8Inst,
+        vm::{Chip8Machine, Chip8Mode},
+    };
 
     #[test]
     fn test_execute_shift_left_no_overflow_original() {
