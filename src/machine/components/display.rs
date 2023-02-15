@@ -39,11 +39,11 @@ impl Chip8Display {
                 .build()
                 .unwrap();
 
-            let BLACK = Color::RGB(0, 0, 0);
-            let WHITE = Color::RGB(255, 255, 255);
+            let black_col = Color::RGB(0, 0, 0);
+            let white_col = Color::RGB(255, 255, 255);
 
             let mut canvas = window.into_canvas().build().unwrap();
-            canvas.set_draw_color(BLACK);
+            canvas.set_draw_color(black_col);
             canvas.clear();
 
             let mut events = sdl_context.event_pump().unwrap();
@@ -51,10 +51,10 @@ impl Chip8Display {
 
             'running: loop {
                 if redraw_clone.load(Ordering::Acquire) {
-                    canvas.set_draw_color(BLACK);
+                    canvas.set_draw_color(black_col);
                     canvas.clear();
 
-                    canvas.set_draw_color(WHITE);
+                    canvas.set_draw_color(white_col);
                     let pixels = pixel_clone.lock().unwrap();
                     for y in 0..DISPLAY_HEIGHT {
                         for x in 0..DISPLAY_WIDTH {
