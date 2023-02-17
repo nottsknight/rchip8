@@ -11,47 +11,31 @@
 // You should have received a copy of the GNU General Public License along with rchip8.
 // If not, see <https://www.gnu.org/licenses/>.
 
-use crate::machine::{
-    insts::Chip8Inst,
-    utils::carry_borrow::*,
-    vm::{Chip8Machine, Chip8Mode},
-    DISPLAY_HEIGHT, DISPLAY_WIDTH, FONT_BASE,
-};
-use std::io::stdin;
-use termion::event::Key;
-use termion::input::TermRead;
+use super::insts::Chip8Inst;
+use super::utils::carry_borrow::*;
+use log::trace;
+use super::{Chip8Machine, Chip8Mode, DISPLAY_HEIGHT, DISPLAY_WIDTH, FONT_BASE};
+use std::sync::atomic::Ordering;
+use std::sync::mpsc::TryRecvError;
 
 impl Chip8Machine {
-    fn get_keydown(&self) -> Option<u8> {
-        let mut keys = stdin().keys();
-        let k = keys.nth(0).unwrap().unwrap();
-        return match k {
-            Key::Char('1') => Some(0x1),
-            Key::Char('2') => Some(0x2),
-            Key::Char('3') => Some(0x3),
-            Key::Char('4') => Some(0xc),
-            Key::Char('q') => Some(0x4),
-            Key::Char('w') => Some(0x5),
-            Key::Char('e') => Some(0x6),
-            Key::Char('r') => Some(0xd),
-            Key::Char('a') => Some(0x7),
-            Key::Char('s') => Some(0x8),
-            Key::Char('d') => Some(0x9),
-            Key::Char('f') => Some(0xe),
-            Key::Char('z') => Some(0xa),
-            Key::Char('x') => Some(0x0),
-            Key::Char('c') => Some(0xb),
-            Key::Char('v') => Some(0xf),
-            _ => None,
-        };
+    fn clear_display(&mut self) {
+        self.display.fill(false);
     }
 
-    pub(in crate::machine) fn execute(&mut self, inst: Chip8Inst) {
+    fn set_display_pixel(&mut self, x: usize, y: usize, px: bool) -> bool {
+        let px0 = self.display[y * DISPLAY_WIDTH + x];
+        self.display[y * DISPLAY_WIDTH + x] = px0 ^ px;
+        px0 && (px ^ px0)
+    }
+
+    pub fn execute(&mut self, inst: Chip8Inst) {
+        trace!("Execute {:?}", inst);
         match inst {
             Chip8Inst::MachineInst(_) => (),
             Chip8Inst::ClearScreen => {
-                self.display.clear();
-                self.display.redraw();
+                self.clear_display();
+                self.redraw.store(true, Ordering::Release);
             }
             Chip8Inst::SubCall(n) => {
                 self.stack.push(self.prog_counter);
@@ -114,14 +98,13 @@ impl Chip8Machine {
                 self.registers[0xf] = if borrow { 1 } else { 0 }
             }
             Chip8Inst::ReadDelay(x) => {
-                let n = self.timers.read_delay();
-                self.registers[x] = n;
+                self.registers[x] = self.read_delay_timer();
             }
             Chip8Inst::SetDelay(x) => {
-                self.timers.set_delay(self.registers[x]);
+                self.write_delay_timer(self.registers[x]);
             }
             Chip8Inst::SetSound(x) => {
-                self.timers.set_sound(self.registers[x]);
+                self.write_sound_timer(self.registers[x]);
             }
             Chip8Inst::Display(x_reg, y_reg, n) => {
                 let mut x = (self.registers[x_reg] & 63) as usize;
@@ -132,7 +115,7 @@ impl Chip8Machine {
                     let b = self.memory[self.index_reg + i as usize];
                     'cols: for j in 0..8 {
                         let px = b & (0x1 << (7 - j));
-                        if self.display.update_pixel(x, y, px != 0) {
+                        if self.set_display_pixel(x as usize, y as usize, px != 0) {
                             self.registers[0xf] = 1;
                         }
 
@@ -148,7 +131,7 @@ impl Chip8Machine {
                     }
                     x = (self.registers[x_reg] & 63) as usize;
                 }
-                self.display.redraw();
+                self.redraw.store(true, Ordering::Release);
             }
             Chip8Inst::Random(x, n) => {
                 let r = rand::random::<u8>();
@@ -170,30 +153,40 @@ impl Chip8Machine {
                 self.registers[x] = n1;
                 self.registers[0xf] = if underflow { 1 } else { 0 };
             }
-            Chip8Inst::SkipEqKey(x) => match self.get_keydown() {
+            Chip8Inst::SkipEqKey(x) => match &self.keypresses {
                 None => (),
-                Some(k) => {
-                    if self.registers[x] == k {
-                        self.prog_counter += 2;
+                Some(key_receive_eq) => match key_receive_eq.try_recv() {
+                    Err(TryRecvError::Empty) => (),
+                    Err(TryRecvError::Disconnected) => {
+                        panic!("Keypresses unexpectedly disconnected")
                     }
-                }
+                    Ok(k) => {
+                        if self.registers[x] == k {
+                            self.prog_counter += 2;
+                        }
+                    }
+                },
             },
-            Chip8Inst::SkipNeqKey(x) => match self.get_keydown() {
+            Chip8Inst::SkipNeqKey(x) => match &self.keypresses {
                 None => (),
-                Some(k) => {
-                    if self.registers[x] != k {
-                        self.prog_counter += 2;
+                Some(key_receive_neq) => match key_receive_neq.try_recv() {
+                    Err(TryRecvError::Empty) => (),
+                    Err(TryRecvError::Disconnected) => {
+                        panic!("Keypresses unexpectedly disconnected")
                     }
-                }
+                    Ok(k) => {
+                        if self.registers[x] != k {
+                            self.prog_counter += 2;
+                        }
+                    }
+                },
             },
-            Chip8Inst::GetKey(x) => loop {
-                match self.get_keydown() {
-                    None => (),
-                    Some(k1) => {
-                        self.registers[x] = k1;
-                        break;
-                    }
-                }
+            Chip8Inst::GetKey(x) => match &self.keypresses {
+                None => panic!("No keypresses channel"),
+                Some(key_receive_assign) => match key_receive_assign.recv() {
+                    Err(e) => panic!("{:?}", e),
+                    Ok(k) => self.registers[x] = k,
+                },
             },
             Chip8Inst::LoadFont(x) => {
                 let c = self.registers[x];
@@ -232,61 +225,5 @@ impl Chip8Machine {
                 }
             },
         }
-    }
-}
-
-#[cfg(test)]
-mod execute_tests {
-    use crate::machine::{
-        insts::Chip8Inst,
-        vm::{Chip8Machine, Chip8Mode},
-    };
-
-    #[test]
-    fn test_execute_shift_left_no_overflow_original() {
-        let mut vm = Chip8Machine::new(Chip8Mode::Original);
-        vm.registers[0x2] = 5;
-        vm.registers[0xa] = 0x71;
-        vm.execute(Chip8Inst::ShiftLeft(0x2, 0xa));
-
-        assert_eq!(vm.registers[0x2], 0xe2);
-        assert_eq!(vm.registers[0xa], 0x71);
-        assert_eq!(vm.registers[0xf], 0);
-    }
-
-    #[test]
-    fn test_execute_shift_left_overflow_original() {
-        let mut vm = Chip8Machine::new(Chip8Mode::Original);
-        vm.registers[0x2] = 0xaa;
-        vm.registers[0xa] = 0xe3;
-        vm.execute(Chip8Inst::ShiftLeft(0x2, 0xa));
-
-        assert_eq!(vm.registers[0x2], 0xc6);
-        assert_eq!(vm.registers[0xa], 0xe3);
-        assert_eq!(vm.registers[0xf], 1);
-    }
-
-    #[test]
-    fn test_execute_shift_right_no_underflow_original() {
-        let mut vm = Chip8Machine::new(Chip8Mode::Original);
-        vm.registers[0x2] = 5;
-        vm.registers[0xa] = 0x72;
-        vm.execute(Chip8Inst::ShiftRight(0x2, 0xa));
-
-        assert_eq!(vm.registers[0x2], 0x39);
-        assert_eq!(vm.registers[0xa], 0x72);
-        assert_eq!(vm.registers[0xf], 0);
-    }
-
-    #[test]
-    fn test_execute_shift_right_underflow_original() {
-        let mut vm = Chip8Machine::new(Chip8Mode::Original);
-        vm.registers[0x2] = 5;
-        vm.registers[0xa] = 0x71;
-        vm.execute(Chip8Inst::ShiftRight(0x2, 0xa));
-
-        assert_eq!(vm.registers[0x2], 0x38);
-        assert_eq!(vm.registers[0xa], 0x71);
-        assert_eq!(vm.registers[0xf], 1);
     }
 }

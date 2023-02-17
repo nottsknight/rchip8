@@ -12,9 +12,10 @@
 // If not, see <https://www.gnu.org/licenses/>.
 
 use clap::Parser;
+use machine::{Chip8Machine, Chip8Mode};
+use simple_logger::SimpleLogger;
 
 mod machine;
-use machine::vm::{Chip8Machine, Chip8Mode};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about=None)]
@@ -27,6 +28,8 @@ struct Chip8Args {
 }
 
 fn main() {
+    SimpleLogger::new().init().unwrap();
+
     let args = Chip8Args::parse();
 
     let mode = if args.original {
@@ -34,9 +37,6 @@ fn main() {
     } else {
         Chip8Mode::Modern
     };
-    let mut vm = Chip8Machine::new(mode);
-    match vm.load_program(&args.rom_file) {
-        Ok(_) => vm.run(),
-        Err(e) => panic!("{:?}", e),
-    }
+
+    Chip8Machine::start_vm(mode, &args.rom_file).unwrap();
 }
