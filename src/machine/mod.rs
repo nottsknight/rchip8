@@ -1,16 +1,28 @@
+// This file is part of rchip8.
+//
+// rchip8 is free software: you can redistribute it and/or modify it under the terms of
+// the GNU General Public License as published by the Free Software Foundation, either
+// version 3 of the License, or (at your option) any later version.
+//
+// rchip8 is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+// without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+// PURPOSE. See the GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along with rchip8.
+// If not, see <https://www.gnu.org/licenses/>.
+
 use log::info;
 use sdl2::event::Event;
-use sdl2::keyboard::{Keycode, Scancode};
+use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 use std::fs::File;
 use std::io::Read;
-use std::sync::mpsc::{channel, Receiver};
 use std::thread;
 use std::{
     sync::{
         atomic::{AtomicBool, AtomicU8, Ordering},
-        Arc, Mutex,
+        Arc, RwLock,
     },
     time::Duration,
 };
@@ -64,7 +76,6 @@ pub struct Chip8Machine {
     sound_timer: Arc<AtomicU8>,
     // display
     display: [bool; DISPLAY_WIDTH * DISPLAY_HEIGHT],
-    keypresses: Option<Receiver<u8>>,
     redraw: Arc<AtomicBool>,
 }
 
@@ -80,24 +91,21 @@ impl Chip8Machine {
             delay_timer: Arc::new(AtomicU8::new(0)),
             sound_timer: Arc::new(AtomicU8::new(0)),
             display: [false; DISPLAY_WIDTH * DISPLAY_HEIGHT],
-            keypresses: None,
             redraw: Arc::new(AtomicBool::new(false)),
         };
 
-        let _ = &vm.memory[FONT_BASE..FONT_BASE + 80].copy_from_slice(&FONT[..]);
+        vm.memory[FONT_BASE..FONT_BASE + 80].copy_from_slice(&FONT[..]);
         vm
     }
 
     pub fn start_vm(mode: Chip8Mode, rom_file: &str) -> std::io::Result<()> {
         info!("Main thread started");
-        let mut vm = Arc::new(Mutex::new(Chip8Machine::new(mode)));
+        let mut vm = Arc::new(RwLock::new(Chip8Machine::new(mode)));
 
-        {
-            let mut vm_guard = vm.lock().unwrap();
-            let mut rom = File::open(rom_file)?;
-            rom.read(&mut vm_guard.memory[0x200..])?;
-            drop(vm_guard);
-        }
+        let mut rom = File::open(rom_file)?;
+        let mut vm_guard = vm.write().unwrap();
+        rom.read(&mut vm_guard.memory[0x200..])?;
+        drop(vm_guard);
 
         // set up display
         let sdl_context = sdl2::init().unwrap();
@@ -122,60 +130,59 @@ impl Chip8Machine {
         let vm_running = Arc::new(AtomicBool::new(true));
         let vm_running_clone = Arc::clone(&vm_running);
 
-        let (key_send, key_receive) = channel::<u8>();
-        let mut vm_guard = vm_local.lock().unwrap();
-        vm_guard.keypresses = Some(key_receive);
-        drop(vm_guard);
+        let vm_thread = thread::spawn(move || {
+            info!("VM thread started");
 
-        let vm_thread = thread::Builder::new()
-            .name(String::from("vm"))
-            .spawn(move || {
-                info!("VM thread started");
-                let vm_freq = Duration::from_nanos(DELAY_1MHZ);
-                let timer_freq = Duration::from_nanos(DELAY_60HZ);
+            let vm_freq = Duration::from_nanos(DELAY_1MHZ);
+            let timer_freq = Duration::from_nanos(DELAY_60HZ);
 
-                // start timer thread
-                let vm_guard = vm_local.lock().unwrap();
-                let delay_timer_clone = Arc::clone(&vm_guard.delay_timer);
-                let sound_timer_clone = Arc::clone(&vm_guard.sound_timer);
+            // start timer thread
+            let vm_guard = vm_local.read().unwrap();
+            let delay_timer_clone = Arc::clone(&vm_guard.delay_timer);
+            let sound_timer_clone = Arc::clone(&vm_guard.sound_timer);
+            drop(vm_guard);
+
+            let timer_running = Arc::new(AtomicBool::new(true));
+            let timer_running_clone = Arc::clone(&timer_running);
+
+            let timer_thread = thread::spawn(move || {
+                info!("Timer thread started");
+                while timer_running_clone.load(Ordering::Acquire) {
+                    let delay = delay_timer_clone.load(Ordering::Acquire);
+                    if delay > 0 {
+                        delay_timer_clone.store(delay - 1, Ordering::Release);
+                    }
+
+                    let sound = sound_timer_clone.load(Ordering::Acquire);
+                    if sound > 0 {
+                        sound_timer_clone.store(sound - 1, Ordering::Release);
+                    }
+
+                    thread::sleep(timer_freq);
+                }
+                info!("Timer thread stopped");
+            });
+
+            while vm_running_clone.load(Ordering::Acquire) {
+                let mut vm_guard = vm_local.write().unwrap();
+                let code = vm_guard.fetch();
                 drop(vm_guard);
 
-                let timer_running = Arc::new(AtomicBool::new(true));
-                let timer_running_clone = Arc::clone(&timer_running);
+                let vm_guard = vm_local.read().unwrap();
+                let inst = vm_guard.decode(code).unwrap();
+                drop(vm_guard);
 
-                let timer_thread =
-                    thread::Builder::new()
-                        .name(String::from("timer"))
-                        .spawn(move || {
-                            info!("Timer thread started");
-                            while timer_running_clone.load(Ordering::Acquire) {
-                                let delay = delay_timer_clone.load(Ordering::Acquire);
-                                if delay > 0 {
-                                    delay_timer_clone.store(delay - 1, Ordering::Release);
-                                }
+                let mut vm_guard = vm_local.write().unwrap();
+                vm_guard.execute(inst);
+                drop(vm_guard);
 
-                                let sound = sound_timer_clone.load(Ordering::Acquire);
-                                if sound > 0 {
-                                    sound_timer_clone.store(sound - 1, Ordering::Release);
-                                }
+                thread::sleep(vm_freq);
+            }
 
-                                thread::sleep(timer_freq);
-                            }
-                        }).unwrap();
-
-                while vm_running_clone.load(Ordering::Acquire) {
-                    let mut vm_guard = vm_local.lock().unwrap();
-                    let code = vm_guard.fetch();
-                    let inst = vm_guard.decode(code).unwrap();
-                    vm_guard.execute(inst);
-                    drop(vm_guard);
-
-                    thread::sleep(vm_freq);
-                }
-
-                timer_running.store(false, Ordering::Release);
-                timer_thread.join().unwrap();
-            }).unwrap();
+            timer_running.store(false, Ordering::Release);
+            timer_thread.join().unwrap();
+            info!("VM thread stopped");
+        });
 
         // run window
         let mut canvas = window.into_canvas().build().unwrap();
@@ -186,17 +193,21 @@ impl Chip8Machine {
         let freq = Duration::from_nanos(DELAY_60HZ);
 
         'main: loop {
-            canvas.set_draw_color(black_col);
-            canvas.clear();
-
-            let vm_guard = vm.lock().unwrap();
+            let vm_guard = vm.read().unwrap();
+            info!("Check for redraw");
             if vm_guard.redraw.load(Ordering::Acquire) {
+                info!("Redrawing");
+                canvas.set_draw_color(black_col);
+                canvas.clear();
+
                 vm_guard.redraw.store(false, Ordering::Release);
                 canvas.set_draw_color(white_col);
                 for y in 0..DISPLAY_HEIGHT {
                     for x in 0..DISPLAY_WIDTH {
-                        let px_rect = Rect::new((x * 10) as i32, (y * 10) as i32, 10, 10);
-                        canvas.fill_rect(px_rect).unwrap();
+                        if vm_guard.display[y * DISPLAY_WIDTH + x] {
+                            let px_rect = Rect::new((x * 10) as i32, (y * 10) as i32, 10, 10);
+                            canvas.fill_rect(px_rect).unwrap();
+                        }
                     }
                 }
             }
@@ -210,24 +221,6 @@ impl Chip8Machine {
                         keycode: Some(Keycode::Escape),
                         ..
                     } => break 'main,
-                    Event::KeyDown { scancode: sc, .. } => match sc {
-                        Some(Scancode::Num1) => key_send.send(0x1).unwrap(),
-                        Some(Scancode::Num2) => key_send.send(0x2).unwrap(),
-                        Some(Scancode::Num3) => key_send.send(0x3).unwrap(),
-                        Some(Scancode::Num4) => key_send.send(0xc).unwrap(),
-                        Some(Scancode::Q) => key_send.send(0x4).unwrap(),
-                        Some(Scancode::W) => key_send.send(0x5).unwrap(),
-                        Some(Scancode::E) => key_send.send(0x6).unwrap(),
-                        Some(Scancode::R) => key_send.send(0xd).unwrap(),
-                        Some(Scancode::A) => key_send.send(0x7).unwrap(),
-                        Some(Scancode::D) => key_send.send(0x8).unwrap(),
-                        Some(Scancode::F) => key_send.send(0x9).unwrap(),
-                        Some(Scancode::Z) => key_send.send(0xa).unwrap(),
-                        Some(Scancode::X) => key_send.send(0x0).unwrap(),
-                        Some(Scancode::C) => key_send.send(0xb).unwrap(),
-                        Some(Scancode::V) => key_send.send(0xf).unwrap(),
-                        _ => (),
-                    },
                     _ => (),
                 }
             }

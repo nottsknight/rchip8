@@ -12,7 +12,6 @@
 // If not, see <https://www.gnu.org/licenses/>.
 
 use super::{insts::Chip8Inst, Chip8Machine};
-use log::trace;
 
 impl Chip8Machine {
     fn bad_instruction(&self, code: u16) -> String {
@@ -24,7 +23,6 @@ impl Chip8Machine {
     }
 
     pub fn decode(&self, code: u16) -> Result<Chip8Inst, String> {
-        trace!("Decode {:#06x}", code);
         let x = (code & 0x0f00) >> 8;
         let y = (code & 0x00f0) >> 4;
         let n = code & 0x000f;

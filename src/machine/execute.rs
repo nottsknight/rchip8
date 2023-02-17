@@ -13,10 +13,9 @@
 
 use super::insts::Chip8Inst;
 use super::utils::carry_borrow::*;
-use log::trace;
 use super::{Chip8Machine, Chip8Mode, DISPLAY_HEIGHT, DISPLAY_WIDTH, FONT_BASE};
 use std::sync::atomic::Ordering;
-use std::sync::mpsc::TryRecvError;
+use log::info;
 
 impl Chip8Machine {
     fn clear_display(&mut self) {
@@ -30,12 +29,12 @@ impl Chip8Machine {
     }
 
     pub fn execute(&mut self, inst: Chip8Inst) {
-        trace!("Execute {:?}", inst);
         match inst {
             Chip8Inst::MachineInst(_) => (),
             Chip8Inst::ClearScreen => {
                 self.clear_display();
                 self.redraw.store(true, Ordering::Release);
+                info!("Request redraw from ClearScreen");
             }
             Chip8Inst::SubCall(n) => {
                 self.stack.push(self.prog_counter);
@@ -132,6 +131,7 @@ impl Chip8Machine {
                     x = (self.registers[x_reg] & 63) as usize;
                 }
                 self.redraw.store(true, Ordering::Release);
+                info!("Request redraw from Display");
             }
             Chip8Inst::Random(x, n) => {
                 let r = rand::random::<u8>();
@@ -153,41 +153,9 @@ impl Chip8Machine {
                 self.registers[x] = n1;
                 self.registers[0xf] = if underflow { 1 } else { 0 };
             }
-            Chip8Inst::SkipEqKey(x) => match &self.keypresses {
-                None => (),
-                Some(key_receive_eq) => match key_receive_eq.try_recv() {
-                    Err(TryRecvError::Empty) => (),
-                    Err(TryRecvError::Disconnected) => {
-                        panic!("Keypresses unexpectedly disconnected")
-                    }
-                    Ok(k) => {
-                        if self.registers[x] == k {
-                            self.prog_counter += 2;
-                        }
-                    }
-                },
-            },
-            Chip8Inst::SkipNeqKey(x) => match &self.keypresses {
-                None => (),
-                Some(key_receive_neq) => match key_receive_neq.try_recv() {
-                    Err(TryRecvError::Empty) => (),
-                    Err(TryRecvError::Disconnected) => {
-                        panic!("Keypresses unexpectedly disconnected")
-                    }
-                    Ok(k) => {
-                        if self.registers[x] != k {
-                            self.prog_counter += 2;
-                        }
-                    }
-                },
-            },
-            Chip8Inst::GetKey(x) => match &self.keypresses {
-                None => panic!("No keypresses channel"),
-                Some(key_receive_assign) => match key_receive_assign.recv() {
-                    Err(e) => panic!("{:?}", e),
-                    Ok(k) => self.registers[x] = k,
-                },
-            },
+            Chip8Inst::SkipEqKey(_) => todo!("SkipEqKey needs reimplementing"),
+            Chip8Inst::SkipNeqKey(_) => todo!("SkipNeqKey needs reimplementing"),
+            Chip8Inst::GetKey(_) => todo!("GetKey needs reimplementing"),
             Chip8Inst::LoadFont(x) => {
                 let c = self.registers[x];
                 self.index_reg = FONT_BASE + (5 * c) as usize;
