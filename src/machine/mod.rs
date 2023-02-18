@@ -11,9 +11,8 @@
 // You should have received a copy of the GNU General Public License along with rchip8.
 // If not, see <https://www.gnu.org/licenses/>.
 
-use log::info;
 use sdl2::event::Event;
-use sdl2::keyboard::Keycode;
+use sdl2::keyboard::{Keycode, Scancode};
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 use std::fs::File;
@@ -76,6 +75,7 @@ pub struct Chip8Machine {
     sound_timer: Arc<AtomicU8>,
     // display
     display: [bool; DISPLAY_WIDTH * DISPLAY_HEIGHT],
+    current_key: Arc<AtomicU8>,
     redraw: Arc<AtomicBool>,
 }
 
@@ -91,6 +91,7 @@ impl Chip8Machine {
             delay_timer: Arc::new(AtomicU8::new(0)),
             sound_timer: Arc::new(AtomicU8::new(0)),
             display: [false; DISPLAY_WIDTH * DISPLAY_HEIGHT],
+            current_key: Arc::new(AtomicU8::new(0xff)),
             redraw: Arc::new(AtomicBool::new(false)),
         };
 
@@ -99,7 +100,6 @@ impl Chip8Machine {
     }
 
     pub fn start_vm(mode: Chip8Mode, rom_file: &str) -> std::io::Result<()> {
-        info!("Main thread started");
         let mut vm = Arc::new(RwLock::new(Chip8Machine::new(mode)));
 
         let mut rom = File::open(rom_file)?;
@@ -131,8 +131,6 @@ impl Chip8Machine {
         let vm_running_clone = Arc::clone(&vm_running);
 
         let vm_thread = thread::spawn(move || {
-            info!("VM thread started");
-
             let vm_freq = Duration::from_nanos(DELAY_1MHZ);
             let timer_freq = Duration::from_nanos(DELAY_60HZ);
 
@@ -146,7 +144,6 @@ impl Chip8Machine {
             let timer_running_clone = Arc::clone(&timer_running);
 
             let timer_thread = thread::spawn(move || {
-                info!("Timer thread started");
                 while timer_running_clone.load(Ordering::Acquire) {
                     let delay = delay_timer_clone.load(Ordering::Acquire);
                     if delay > 0 {
@@ -160,7 +157,6 @@ impl Chip8Machine {
 
                     thread::sleep(timer_freq);
                 }
-                info!("Timer thread stopped");
             });
 
             while vm_running_clone.load(Ordering::Acquire) {
@@ -181,7 +177,6 @@ impl Chip8Machine {
 
             timer_running.store(false, Ordering::Release);
             timer_thread.join().unwrap();
-            info!("VM thread stopped");
         });
 
         // run window
@@ -194,9 +189,7 @@ impl Chip8Machine {
 
         'main: loop {
             let vm_guard = vm.read().unwrap();
-            info!("Check for redraw");
             if vm_guard.redraw.load(Ordering::Acquire) {
-                info!("Redrawing");
                 canvas.set_draw_color(black_col);
                 canvas.clear();
 
@@ -221,6 +214,37 @@ impl Chip8Machine {
                         keycode: Some(Keycode::Escape),
                         ..
                     } => break 'main,
+                    Event::KeyDown { scancode: sc, .. } => {
+                        let vm_guard = vm.write().unwrap();
+                        match sc {
+                            Some(Scancode::Num1) => {
+                                vm_guard.current_key.store(0x1, Ordering::Release)
+                            }
+                            Some(Scancode::Num2) => {
+                                vm_guard.current_key.store(0x2, Ordering::Release)
+                            }
+                            Some(Scancode::Num3) => {
+                                vm_guard.current_key.store(0x3, Ordering::Release)
+                            }
+                            Some(Scancode::Num4) => {
+                                vm_guard.current_key.store(0xc, Ordering::Release)
+                            }
+                            Some(Scancode::Q) => vm_guard.current_key.store(0x4, Ordering::Release),
+                            Some(Scancode::W) => vm_guard.current_key.store(0x5, Ordering::Release),
+                            Some(Scancode::E) => vm_guard.current_key.store(0x6, Ordering::Release),
+                            Some(Scancode::R) => vm_guard.current_key.store(0xd, Ordering::Release),
+                            Some(Scancode::A) => vm_guard.current_key.store(0x7, Ordering::Release),
+                            Some(Scancode::S) => vm_guard.current_key.store(0x8, Ordering::Release),
+                            Some(Scancode::D) => vm_guard.current_key.store(0x9, Ordering::Release),
+                            Some(Scancode::F) => vm_guard.current_key.store(0xe, Ordering::Release),
+                            Some(Scancode::Z) => vm_guard.current_key.store(0xa, Ordering::Release),
+                            Some(Scancode::X) => vm_guard.current_key.store(0x0, Ordering::Release),
+                            Some(Scancode::C) => vm_guard.current_key.store(0xb, Ordering::Release),
+                            Some(Scancode::V) => vm_guard.current_key.store(0xf, Ordering::Release),
+                            _ => vm_guard.current_key.store(0xff, Ordering::Release),
+                        }
+                        drop(vm_guard);
+                    }
                     _ => (),
                 }
             }

@@ -15,7 +15,6 @@ use super::insts::Chip8Inst;
 use super::utils::carry_borrow::*;
 use super::{Chip8Machine, Chip8Mode, DISPLAY_HEIGHT, DISPLAY_WIDTH, FONT_BASE};
 use std::sync::atomic::Ordering;
-use log::info;
 
 impl Chip8Machine {
     fn clear_display(&mut self) {
@@ -34,7 +33,6 @@ impl Chip8Machine {
             Chip8Inst::ClearScreen => {
                 self.clear_display();
                 self.redraw.store(true, Ordering::Release);
-                info!("Request redraw from ClearScreen");
             }
             Chip8Inst::SubCall(n) => {
                 self.stack.push(self.prog_counter);
@@ -131,7 +129,6 @@ impl Chip8Machine {
                     x = (self.registers[x_reg] & 63) as usize;
                 }
                 self.redraw.store(true, Ordering::Release);
-                info!("Request redraw from Display");
             }
             Chip8Inst::Random(x, n) => {
                 let r = rand::random::<u8>();
@@ -153,9 +150,25 @@ impl Chip8Machine {
                 self.registers[x] = n1;
                 self.registers[0xf] = if underflow { 1 } else { 0 };
             }
-            Chip8Inst::SkipEqKey(_) => todo!("SkipEqKey needs reimplementing"),
-            Chip8Inst::SkipNeqKey(_) => todo!("SkipNeqKey needs reimplementing"),
-            Chip8Inst::GetKey(_) => todo!("GetKey needs reimplementing"),
+            Chip8Inst::SkipEqKey(x) => {
+                let key = self.current_key.load(Ordering::Acquire);
+                if self.registers[x] == key {
+                    self.prog_counter += 2;
+                }
+            }
+            Chip8Inst::SkipNeqKey(x) => {
+                let key = self.current_key.load(Ordering::Acquire);
+                if self.registers[x] != key {
+                    self.prog_counter += 2;
+                }
+            }
+            Chip8Inst::GetKey(x) => loop {
+                let key = self.current_key.load(Ordering::Acquire);
+                if key != 0xff {
+                    self.registers[x] = key;
+                    break;
+                }
+            },
             Chip8Inst::LoadFont(x) => {
                 let c = self.registers[x];
                 self.index_reg = FONT_BASE + (5 * c) as usize;
@@ -193,5 +206,6 @@ impl Chip8Machine {
                 }
             },
         }
+        self.current_key.store(0xff, Ordering::Release);
     }
 }
