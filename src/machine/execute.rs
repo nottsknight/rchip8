@@ -12,7 +12,7 @@
 // If not, see <https://www.gnu.org/licenses/>.
 
 use super::insts::Chip8Inst;
-use super::utils::carry_borrow::*;
+use super::carry_borrow::*;
 use super::Display;
 use super::{Chip8Machine, Chip8Mode, DISPLAY_HEIGHT, DISPLAY_WIDTH, FONT_BASE};
 use log::info;

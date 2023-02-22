@@ -11,6 +11,8 @@
 // You should have received a copy of the GNU General Public License along with rchip8.
 // If not, see <https://www.gnu.org/licenses/>.
 
+mod machine;
+
 use clap::Parser;
 use log::{error, info};
 use machine::{Chip8Machine, Chip8Mode, DELAY_1MHZ, DELAY_60HZ, DISPLAY_HEIGHT, DISPLAY_WIDTH};
@@ -27,8 +29,6 @@ use std::sync::{
 };
 use std::thread;
 use std::time::Duration;
-
-mod machine;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about=None)]
