@@ -11,33 +11,24 @@
 // You should have received a copy of the GNU General Public License along with rchip8.
 // If not, see <https://www.gnu.org/licenses/>.
 
-use log::{error, info, trace, warn};
-use sdl2::event::Event;
-use sdl2::keyboard::{Keycode, Scancode};
-use sdl2::pixels::Color;
-use sdl2::rect::Rect;
 use std::fs::File;
 use std::io::Read;
-use std::thread;
-use std::{
-    sync::{
-        atomic::{AtomicBool, AtomicU8, Ordering},
-        Arc, RwLock,
-    },
-    time::Duration,
+use std::sync::{
+    atomic::{AtomicBool, AtomicU8},
+    Arc, Condvar, Mutex,
 };
 
-const DELAY_60HZ: u64 = 1_000_000_000 / 60;
+pub const DELAY_60HZ: u64 = 1_000_000_000 / 60;
 
-const DELAY_1MHZ: u64 = 1_000_000_000 / 1000;
+pub const DELAY_1MHZ: u64 = 1_000_000_000 / 1000;
 
-const DISPLAY_WIDTH: usize = 64;
+pub const DISPLAY_WIDTH: usize = 64;
 
-const DISPLAY_HEIGHT: usize = 32;
+pub const DISPLAY_HEIGHT: usize = 32;
 
-const FONT_BASE: usize = 0x050;
+pub const FONT_BASE: usize = 0x050;
 
-const FONT: [u8; 80] = [
+pub const FONT: [u8; 80] = [
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
     0x20, 0x60, 0x20, 0x20, 0x70, // 1
     0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
@@ -62,6 +53,8 @@ pub enum Chip8Mode {
     Modern,
 }
 
+type Display = [bool; DISPLAY_WIDTH * DISPLAY_HEIGHT];
+
 pub struct Chip8Machine {
     mode: Chip8Mode,
     // memory
@@ -75,13 +68,20 @@ pub struct Chip8Machine {
     delay_timer: Arc<AtomicU8>,
     sound_timer: Arc<AtomicU8>,
     // display
-    display: [bool; DISPLAY_WIDTH * DISPLAY_HEIGHT],
-    current_key: Arc<AtomicU8>,
+    display: Arc<Mutex<Display>>,
+    current_key: Arc<(Mutex<u8>, Condvar)>,
     redraw: Arc<AtomicBool>,
 }
 
 impl Chip8Machine {
-    fn new(mode: Chip8Mode) -> Chip8Machine {
+    pub fn new(
+        mode: Chip8Mode,
+        delay_timer: Arc<AtomicU8>,
+        sound_timer: Arc<AtomicU8>,
+        display: Arc<Mutex<Display>>,
+        current_key: Arc<(Mutex<u8>, Condvar)>,
+        redraw: Arc<AtomicBool>,
+    ) -> Chip8Machine {
         let mut vm = Chip8Machine {
             mode,
             memory: [0; 4096],
@@ -89,217 +89,28 @@ impl Chip8Machine {
             prog_counter: 0x200,
             registers: [0; 16],
             index_reg: 0,
-            delay_timer: Arc::new(AtomicU8::new(0)),
-            sound_timer: Arc::new(AtomicU8::new(0)),
-            display: [false; DISPLAY_WIDTH * DISPLAY_HEIGHT],
-            current_key: Arc::new(AtomicU8::new(0xff)),
-            redraw: Arc::new(AtomicBool::new(false)),
+            delay_timer,
+            sound_timer,
+            display,
+            current_key,
+            redraw,
         };
 
         vm.memory[FONT_BASE..FONT_BASE + 80].copy_from_slice(&FONT[..]);
         vm
     }
 
-    pub fn start_vm(mode: Chip8Mode, rom_file: &str) -> std::io::Result<()> {
-        info!("Main thread started");
-        let mut vm = Arc::new(RwLock::new(Chip8Machine::new(mode)));
-
-        let mut rom = File::open(rom_file)?;
-        let mut vm_guard = vm.write().unwrap();
-        rom.read(&mut vm_guard.memory[0x200..])?;
-        drop(vm_guard);
-
-        // set up display
-        let sdl_context = sdl2::init().unwrap();
-        let video_subsystem = sdl_context.video().unwrap();
-
-        let window = video_subsystem
-            .window(
-                "rCHIP-8",
-                (DISPLAY_WIDTH * 10) as u32,
-                (DISPLAY_HEIGHT * 10) as u32,
-            )
-            .position_centered()
-            .build()
-            .unwrap();
-
-        let black_col = Color::RGB(0, 0, 0);
-        let white_col = Color::RGB(255, 255, 255);
-
-        // launch vm thread
-        let vm_local = Arc::clone(&mut vm);
-
-        let vm_running = Arc::new(AtomicBool::new(true));
-        let vm_running_clone = Arc::clone(&vm_running);
-
-        let vm_thread = thread::Builder::new()
-            .name(String::from("vm"))
-            .spawn(move || {
-                info!("VM thread started");
-                let vm_freq = Duration::from_nanos(DELAY_1MHZ);
-                let timer_freq = Duration::from_nanos(DELAY_60HZ);
-
-                // start timer thread
-                let vm_guard = vm_local.read().unwrap();
-                let delay_timer_clone = Arc::clone(&vm_guard.delay_timer);
-                let sound_timer_clone = Arc::clone(&vm_guard.sound_timer);
-                drop(vm_guard);
-
-                let timer_running = Arc::new(AtomicBool::new(true));
-                let timer_running_clone = Arc::clone(&timer_running);
-
-                let timer_thread = thread::Builder::new()
-                    .name(String::from("timer"))
-                    .spawn(move || {
-                        info!("Timer thread started");
-                        while timer_running_clone.load(Ordering::Acquire) {
-                            let delay = delay_timer_clone.load(Ordering::Acquire);
-                            if delay > 0 {
-                                delay_timer_clone.store(delay - 1, Ordering::Release);
-                            }
-
-                            let sound = sound_timer_clone.load(Ordering::Acquire);
-                            if sound > 0 {
-                                sound_timer_clone.store(sound - 1, Ordering::Release);
-                            }
-
-                            thread::sleep(timer_freq);
-                        }
-                    })
-                    .unwrap();
-
-                while vm_running_clone.load(Ordering::Acquire) {
-                    let mut vm_guard = vm_local.write().unwrap();
-                    let code = vm_guard.fetch();
-                    drop(vm_guard);
-
-                    let vm_guard = vm_local.read().unwrap();
-                    let inst = vm_guard.decode(code).unwrap();
-                    drop(vm_guard);
-
-                    let mut vm_guard = vm_local.write().unwrap();
-                    vm_guard.execute(inst);
-                    drop(vm_guard);
-
-                    thread::sleep(vm_freq);
-                }
-
-                timer_running.store(false, Ordering::Release);
-                match timer_thread.join() {
-                    Ok(_) => info!("Timer thread stopped successfully"),
-                    Err(e) => warn!("Error stopping timer thread: {:?}", e),
-                }
-            })
-            .unwrap();
-
-        // run window
-        let mut canvas = window.into_canvas().build().unwrap();
-        canvas.set_draw_color(black_col);
-        canvas.clear();
-
-        let mut events = sdl_context.event_pump().unwrap();
-        let freq = Duration::from_nanos(DELAY_60HZ);
-
-        'main: loop {
-            let vm_guard = vm.read().unwrap();
-            trace!("Check redraw");
-            if vm_guard.redraw.load(Ordering::Acquire) {
-                trace!("Redrawing");
-                canvas.set_draw_color(black_col);
-                canvas.clear();
-
-                vm_guard.redraw.store(false, Ordering::Release);
-                canvas.set_draw_color(white_col);
-                for y in 0..DISPLAY_HEIGHT {
-                    for x in 0..DISPLAY_WIDTH {
-                        if vm_guard.display[y * DISPLAY_WIDTH + x] {
-                            let px_rect = Rect::new((x * 10) as i32, (y * 10) as i32, 10, 10);
-                            match canvas.fill_rect(px_rect) {
-                                Ok(_) => (),
-                                Err(e) => error!("Drawing error: {:?}", e),
-                            }
-                        }
-                    }
-                }
-            }
-            drop(vm_guard);
-            canvas.present();
-
-            trace!("Check SDL event queue");
-            for e in events.poll_iter() {
-                trace!("Event {:?}", e);
-                match e {
-                    Event::Quit { .. }
-                    | Event::KeyDown {
-                        keycode: Some(Keycode::Escape),
-                        ..
-                    } => break 'main,
-                    Event::KeyDown { scancode: sc, .. } => {
-                        info!("Key pressed: {:?}", sc);
-                        let vm_guard = vm.write().unwrap();
-                        match sc {
-                            Some(Scancode::Num1) => {
-                                vm_guard.current_key.store(0x1, Ordering::Relaxed)
-                            }
-                            Some(Scancode::Num2) => {
-                                vm_guard.current_key.store(0x2, Ordering::Relaxed)
-                            }
-                            Some(Scancode::Num3) => {
-                                vm_guard.current_key.store(0x3, Ordering::Relaxed)
-                            }
-                            Some(Scancode::Num4) => {
-                                vm_guard.current_key.store(0xc, Ordering::Relaxed)
-                            }
-                            Some(Scancode::Q) => vm_guard.current_key.store(0x4, Ordering::Relaxed),
-                            Some(Scancode::W) => vm_guard.current_key.store(0x5, Ordering::Relaxed),
-                            Some(Scancode::E) => vm_guard.current_key.store(0x6, Ordering::Relaxed),
-                            Some(Scancode::R) => vm_guard.current_key.store(0xd, Ordering::Relaxed),
-                            Some(Scancode::A) => vm_guard.current_key.store(0x7, Ordering::Relaxed),
-                            Some(Scancode::S) => vm_guard.current_key.store(0x8, Ordering::Relaxed),
-                            Some(Scancode::D) => vm_guard.current_key.store(0x9, Ordering::Relaxed),
-                            Some(Scancode::F) => vm_guard.current_key.store(0xe, Ordering::Relaxed),
-                            Some(Scancode::Z) => vm_guard.current_key.store(0xa, Ordering::Relaxed),
-                            Some(Scancode::X) => vm_guard.current_key.store(0x0, Ordering::Relaxed),
-                            Some(Scancode::C) => vm_guard.current_key.store(0xb, Ordering::Relaxed),
-                            Some(Scancode::V) => vm_guard.current_key.store(0xf, Ordering::Relaxed),
-                            _ => vm_guard.current_key.store(0xff, Ordering::Relaxed),
-                        }
-                        drop(vm_guard);
-                    }
-                    _ => (),
-                }
-            }
-
-            thread::sleep(freq);
-        }
-
-        // shutdown other threads
-        vm_running.store(false, Ordering::Release);
-        match vm_thread.join() {
-            Ok(_) => info!("VM thread stopped successfully"),
-            Err(e) => warn!("Failed to stop VM thread: {:?}", e),
-        }
-
+    pub fn load_rom(&mut self, filename: &str) -> std::io::Result<()> {
+        let mut f = File::open(filename)?;
+        f.read(&mut self.memory[self.prog_counter..])?;
         Ok(())
     }
 
-    fn fetch(&mut self) -> u16 {
-        let hi = self.memory[self.prog_counter];
-        let lo = self.memory[self.prog_counter + 1];
+    pub fn fetch(&mut self) -> u16 {
+        let hi = self.memory[self.prog_counter] as u16;
+        let lo = self.memory[self.prog_counter + 1] as u16;
         self.prog_counter += 2;
-        (hi as u16) << 8 | lo as u16
-    }
-
-    fn read_delay_timer(&self) -> u8 {
-        self.delay_timer.load(Ordering::Acquire)
-    }
-
-    fn write_delay_timer(&mut self, value: u8) {
-        self.delay_timer.store(value, Ordering::Release)
-    }
-
-    fn write_sound_timer(&mut self, value: u8) {
-        self.sound_timer.store(value, Ordering::Release)
+        (hi << 8) | lo
     }
 }
 

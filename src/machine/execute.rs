@@ -13,30 +13,18 @@
 
 use super::insts::Chip8Inst;
 use super::utils::carry_borrow::*;
-use super::{Chip8Machine, Chip8Mode, DELAY_1MHZ, DISPLAY_HEIGHT, DISPLAY_WIDTH, FONT_BASE};
-use log::trace;
+use super::Display;
+use super::{Chip8Machine, Chip8Mode, DISPLAY_HEIGHT, DISPLAY_WIDTH, FONT_BASE};
+use log::info;
 use std::sync::atomic::Ordering;
-use std::thread;
-use std::time::Duration;
 
 impl Chip8Machine {
-    fn clear_display(&mut self) {
-        self.display.fill(false);
-    }
-
-    fn set_display_pixel(&mut self, x: usize, y: usize, px: bool) -> bool {
-        trace!("Set pixel ({},{}) idx={}", x, y, y * DISPLAY_WIDTH + x);
-        let px0 = self.display[y * DISPLAY_WIDTH + x];
-        self.display[y * DISPLAY_WIDTH + x] = px0 ^ px;
-        px0 && (px ^ px0)
-    }
-
     pub fn execute(&mut self, inst: Chip8Inst) {
-        trace!("Execute {:?}", inst);
         match inst {
             Chip8Inst::MachineInst(_) => (),
             Chip8Inst::ClearScreen => {
-                self.clear_display();
+                let mut dsp = self.display.lock().unwrap();
+                dsp.fill(false);
                 self.redraw.store(true, Ordering::Release);
             }
             Chip8Inst::SubCall(n) => {
@@ -100,24 +88,28 @@ impl Chip8Machine {
                 self.registers[0xf] = if borrow { 1 } else { 0 }
             }
             Chip8Inst::ReadDelay(x) => {
-                self.registers[x] = self.read_delay_timer();
+                let delay = self.delay_timer.load(Ordering::Acquire);
+                self.registers[x] = delay;
             }
             Chip8Inst::SetDelay(x) => {
-                self.write_delay_timer(self.registers[x]);
+                let delay = self.registers[x];
+                self.delay_timer.store(delay, Ordering::Release);
             }
             Chip8Inst::SetSound(x) => {
-                self.write_sound_timer(self.registers[x]);
+                let sound = self.registers[x];
+                self.sound_timer.store(sound, Ordering::Release);
             }
             Chip8Inst::Display(x_reg, y_reg, n) => {
                 let mut x = (self.registers[x_reg] & 63) as usize;
                 let mut y = (self.registers[y_reg] & 31) as usize;
                 self.registers[0xf] = 0;
 
+                let mut dsp = self.display.lock().unwrap();
                 'rows: for i in 0..n {
                     let b = self.memory[self.index_reg + i as usize];
                     'cols: for j in 0..8 {
                         let px = b & (0x1 << (7 - j));
-                        if self.set_display_pixel(x as usize, y as usize, px != 0) {
+                        if set_display_pixel(&mut dsp, x as usize, y as usize, px != 0) {
                             self.registers[0xf] = 1;
                         }
 
@@ -156,27 +148,26 @@ impl Chip8Machine {
                 self.registers[0xf] = if underflow { 1 } else { 0 };
             }
             Chip8Inst::SkipEqKey(x) => {
-                let key = self.current_key.load(Ordering::Relaxed);
-                if self.registers[x] == key {
+                let (lock, _) = &*self.current_key;
+                let key = lock.lock().unwrap();
+                if self.registers[x] == *key {
                     self.prog_counter += 2;
                 }
             }
             Chip8Inst::SkipNeqKey(x) => {
-                let key = self.current_key.load(Ordering::Relaxed);
-                if self.registers[x] != key {
+                let (lock, _) = &*self.current_key;
+                let key = lock.lock().unwrap();
+                if self.registers[x] != *key {
                     self.prog_counter += 2;
                 }
             }
             Chip8Inst::GetKey(x) => {
-                let freq = Duration::from_nanos(DELAY_1MHZ);
-                let key = loop {
-                    let k = self.current_key.load(Ordering::Relaxed);
-                    if k != 0xff {
-                        break k;
-                    }
-                    thread::sleep(freq);
-                };
-                self.registers[x] = key;
+                info!("GetKey");
+                let (lock, cvar) = &*self.current_key;
+                let mut key = lock.lock().unwrap();
+                key = cvar.wait(key).unwrap();
+                info!("Condvar notified");
+                self.registers[x] = *key;
             }
             Chip8Inst::LoadFont(x) => {
                 let c = self.registers[x];
@@ -215,6 +206,15 @@ impl Chip8Machine {
                 }
             },
         }
-        self.current_key.store(0xff, Ordering::Release);
+
+        let (lock, _) = &*self.current_key;
+        let mut key = lock.lock().unwrap();
+        *key = 0xff;
     }
+}
+
+fn set_display_pixel(display: &mut Display, x: usize, y: usize, px: bool) -> bool {
+    let px0 = display[y * DISPLAY_WIDTH + x];
+    display[y * DISPLAY_WIDTH + x] = px0 ^ px;
+    px0 && (px ^ px0)
 }

@@ -11,7 +11,6 @@
 // You should have received a copy of the GNU General Public License along with rchip8.
 // If not, see <https://www.gnu.org/licenses/>.
 
-use log::trace;
 use super::{insts::Chip8Inst, Chip8Machine};
 
 impl Chip8Machine {
@@ -24,7 +23,6 @@ impl Chip8Machine {
     }
 
     pub fn decode(&self, code: u16) -> Result<Chip8Inst, String> {
-        trace!("Decode {:#06x}", code);
         let x = (code & 0x0f00) >> 8;
         let y = (code & 0x00f0) >> 4;
         let n = code & 0x000f;
