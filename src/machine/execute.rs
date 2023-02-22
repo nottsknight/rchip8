@@ -13,8 +13,11 @@
 
 use super::insts::Chip8Inst;
 use super::utils::carry_borrow::*;
-use super::{Chip8Machine, Chip8Mode, DISPLAY_HEIGHT, DISPLAY_WIDTH, FONT_BASE};
+use super::{Chip8Machine, Chip8Mode, DELAY_1MHZ, DISPLAY_HEIGHT, DISPLAY_WIDTH, FONT_BASE};
+use log::trace;
 use std::sync::atomic::Ordering;
+use std::thread;
+use std::time::Duration;
 
 impl Chip8Machine {
     fn clear_display(&mut self) {
@@ -22,12 +25,14 @@ impl Chip8Machine {
     }
 
     fn set_display_pixel(&mut self, x: usize, y: usize, px: bool) -> bool {
+        trace!("Set pixel ({},{}) idx={}", x, y, y * DISPLAY_WIDTH + x);
         let px0 = self.display[y * DISPLAY_WIDTH + x];
         self.display[y * DISPLAY_WIDTH + x] = px0 ^ px;
         px0 && (px ^ px0)
     }
 
     pub fn execute(&mut self, inst: Chip8Inst) {
+        trace!("Execute {:?}", inst);
         match inst {
             Chip8Inst::MachineInst(_) => (),
             Chip8Inst::ClearScreen => {
@@ -151,24 +156,28 @@ impl Chip8Machine {
                 self.registers[0xf] = if underflow { 1 } else { 0 };
             }
             Chip8Inst::SkipEqKey(x) => {
-                let key = self.current_key.load(Ordering::Acquire);
+                let key = self.current_key.load(Ordering::Relaxed);
                 if self.registers[x] == key {
                     self.prog_counter += 2;
                 }
             }
             Chip8Inst::SkipNeqKey(x) => {
-                let key = self.current_key.load(Ordering::Acquire);
+                let key = self.current_key.load(Ordering::Relaxed);
                 if self.registers[x] != key {
                     self.prog_counter += 2;
                 }
             }
-            Chip8Inst::GetKey(x) => loop {
-                let key = self.current_key.load(Ordering::Acquire);
-                if key != 0xff {
-                    self.registers[x] = key;
-                    break;
-                }
-            },
+            Chip8Inst::GetKey(x) => {
+                let freq = Duration::from_nanos(DELAY_1MHZ);
+                let key = loop {
+                    let k = self.current_key.load(Ordering::Relaxed);
+                    if k != 0xff {
+                        break k;
+                    }
+                    thread::sleep(freq);
+                };
+                self.registers[x] = key;
+            }
             Chip8Inst::LoadFont(x) => {
                 let c = self.registers[x];
                 self.index_reg = FONT_BASE + (5 * c) as usize;

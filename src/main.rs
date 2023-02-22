@@ -38,5 +38,8 @@ fn main() {
         Chip8Mode::Modern
     };
 
-    Chip8Machine::start_vm(mode, &args.rom_file).unwrap();
+    match Chip8Machine::start_vm(mode, &args.rom_file) {
+        Ok(_) => (),
+        Err(e) => println!("Failed to load program: {:?}", e.kind()),
+    }
 }
