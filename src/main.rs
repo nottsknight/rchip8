@@ -14,11 +14,10 @@
 mod machine;
 
 use clap::Parser;
-use log::{error, info};
 use machine::{Chip8Machine, Chip8Mode, DELAY_1MHZ, DELAY_60HZ, DISPLAY_HEIGHT, DISPLAY_WIDTH};
 use sdl2::{
     event::Event,
-    keyboard::{Keycode, Scancode},
+    keyboard::Scancode,
     pixels::Color,
     rect::Rect,
 };
@@ -91,10 +90,7 @@ fn start_vm(mode: Chip8Mode, rom_file: &str) {
 
     match vm.load_rom(rom_file) {
         Ok(_) => (),
-        Err(e) => {
-            error!("{:?}", e);
-            std::process::exit(1);
-        }
+        Err(e) => panic!("{:?}", e),
     }
 
     // Launch VM thread
@@ -142,21 +138,17 @@ fn start_vm(mode: Chip8Mode, rom_file: &str) {
                 }
             }
 
+            redraw.store(false, Ordering::Relaxed);
             canvas.present();
         }
 
         // Respond to input events
         for e in events.poll_iter() {
             match e {
-                Event::Quit { .. }
-                | Event::KeyDown {
-                    keycode: Some(Keycode::Escape),
-                    ..
-                } => break 'running,
+                Event::Quit { .. } => break 'running,
                 Event::KeyDown {
                     scancode: Some(sc), ..
                 } => {
-                    info!("Got scancode {:?}", sc);
                     let (lock, cvar) = &*current_key;
                     let mut key = lock.lock().unwrap();
                     match sc {

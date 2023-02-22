@@ -11,11 +11,10 @@
 // You should have received a copy of the GNU General Public License along with rchip8.
 // If not, see <https://www.gnu.org/licenses/>.
 
-use super::insts::Chip8Inst;
 use super::carry_borrow::*;
+use super::insts::Chip8Inst;
 use super::Display;
 use super::{Chip8Machine, Chip8Mode, DISPLAY_HEIGHT, DISPLAY_WIDTH, FONT_BASE};
-use log::info;
 use std::sync::atomic::Ordering;
 
 impl Chip8Machine {
@@ -162,11 +161,9 @@ impl Chip8Machine {
                 }
             }
             Chip8Inst::GetKey(x) => {
-                info!("GetKey");
                 let (lock, cvar) = &*self.current_key;
                 let mut key = lock.lock().unwrap();
                 key = cvar.wait(key).unwrap();
-                info!("Condvar notified");
                 self.registers[x] = *key;
             }
             Chip8Inst::LoadFont(x) => {
@@ -213,6 +210,7 @@ impl Chip8Machine {
     }
 }
 
+#[inline]
 fn set_display_pixel(display: &mut Display, x: usize, y: usize, px: bool) -> bool {
     let px0 = display[y * DISPLAY_WIDTH + x];
     display[y * DISPLAY_WIDTH + x] = px0 ^ px;
