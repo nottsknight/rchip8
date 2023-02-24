@@ -18,6 +18,7 @@ use super::{Chip8Machine, Chip8Mode, DISPLAY_HEIGHT, DISPLAY_WIDTH, FONT_BASE};
 use std::sync::atomic::Ordering;
 
 impl Chip8Machine {
+    /// Execute the given instruction.
     pub fn execute(&mut self, inst: Chip8Inst) {
         match inst {
             Chip8Inst::MachineInst(_) => (),
@@ -113,13 +114,13 @@ impl Chip8Machine {
                         }
 
                         x += 1;
-                        if x - 1 >= DISPLAY_WIDTH {
+                        if x >= DISPLAY_WIDTH {
                             break 'cols;
                         }
                     }
 
                     y += 1;
-                    if y - 1 >= DISPLAY_HEIGHT {
+                    if y >= DISPLAY_HEIGHT {
                         break 'rows;
                     }
                     x = (self.registers[x_reg] & 63) as usize;
@@ -149,14 +150,14 @@ impl Chip8Machine {
             Chip8Inst::SkipEqKey(x) => {
                 let (lock, _) = &*self.current_key;
                 let key = lock.lock().unwrap();
-                if self.registers[x] == *key {
+                if key.is_some() && self.registers[x] == key.unwrap() {
                     self.prog_counter += 2;
                 }
             }
             Chip8Inst::SkipNeqKey(x) => {
                 let (lock, _) = &*self.current_key;
                 let key = lock.lock().unwrap();
-                if self.registers[x] != *key {
+                if key.is_some() && self.registers[x] != key.unwrap() {
                     self.prog_counter += 2;
                 }
             }
@@ -164,7 +165,9 @@ impl Chip8Machine {
                 let (lock, cvar) = &*self.current_key;
                 let mut key = lock.lock().unwrap();
                 key = cvar.wait(key).unwrap();
-                self.registers[x] = *key;
+                if key.is_some() {
+                    self.registers[x] = key.unwrap();
+                }
             }
             Chip8Inst::LoadFont(x) => {
                 let c = self.registers[x];
@@ -206,7 +209,7 @@ impl Chip8Machine {
 
         let (lock, _) = &*self.current_key;
         let mut key = lock.lock().unwrap();
-        *key = 0xff;
+        *key = None;
     }
 }
 

@@ -122,8 +122,8 @@ mod shift_overflow_u8_tests {
 
     #[test]
     fn test_shift_right_underflow() {
-       let (n, underflow) = u8::shift_right(0xe1, 1);
-       assert_eq!(n, 0x70);
-       assert!(underflow);
+        let (n, underflow) = u8::shift_right(0xe1, 1);
+        assert_eq!(n, 0x70);
+        assert!(underflow);
     }
 }

@@ -13,48 +13,81 @@
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Chip8Inst {
-    // Display
+    /// Set all display bits to false.
     ClearScreen,
+    /// Draw some rows of the currently loaded character on screen.
     Display(usize, usize, u8),
-    // Subroutines and jumps
+
+    /// Call the machine language routine at the specified address.
     MachineInst(usize),
+    /// Jump to the specified address.
     Jump(usize),
+    /// Call the subroutine that begins at the specified address.
     SubCall(usize),
+    /// Return from the current subroutine.
     SubReturn,
-    // Skips
+
+    /// Skip the next instruction if a register is equal to a constant value.
     SkipEqConst(usize, u8),
+    /// Skip the next instruction if a register is not equal to a constant value.
     SkipNeqConst(usize, u8),
+    /// Skip the next instruction if two registers are equal.
     SkipEqReg(usize, usize),
+    /// Skip the next instruction if two registers are not equal.
     SkipNeqReg(usize, usize),
-    // Register ops
+
+    /// Set a register to a constant value.
     RegSet(usize, u8),
+    /// Add a constant to the value of a register, ignoring any carries.
     RegAddNoCarry(usize, u8),
-    // Arithmetic and logic
+
+    /// Set one register to another register.
     Assign(usize, usize),
+    /// Set one register to the bitwise-OR of two registers.
     BinOr(usize, usize),
+    /// Set one register to the bitwise-AND of two registers.
     BinAnd(usize, usize),
+    /// Set one register to the bitwise-XOR of two registers.
     BinXor(usize, usize),
+    /// Add two registers together, respecting carrying.
     ArithAdd(usize, usize),
+    /// Subtract two registers, respecting borrowing.
     ArithSub(usize, usize),
+    /// Subtract two registers in reverse order.
     ArithSubReverse(usize, usize),
+    /// Logically shift a register left.
     ShiftLeft(usize, usize),
+    /// Logically shift a register right.
     ShiftRight(usize, usize),
-    // Timers
+
+    /// Get the current value of the delay timer.
     ReadDelay(usize),
+    /// Set the value of the delay timer.
     SetDelay(usize),
+    /// Set the value of the sound timer.
     SetSound(usize),
-    // Index reg
+
+    /// Set the index register.
     SetIndex(usize),
+    /// Add a constant value to the index register.
     AddIndex(usize),
-    // Random
+
+    /// Set a register to a random value bitwise-ANDed with a register.
     Random(usize, u8),
-    // Keys
+
+    /// Skip the next instruction if a specified key is being pressed.
     SkipEqKey(usize),
+    /// Skip the next instruction if a specified key is not being pressed.
     SkipNeqKey(usize),
+    /// Block until a key is pressed.
     GetKey(usize),
-    // Memory
+
+    /// Load a font character.
     LoadFont(usize),
+    /// Write the binary-coded decimal representation of a register into memory.
     BCDConvert(usize),
+    /// Write the contents of several registers to sequential locations in memory.
     StoreMem(usize),
+    /// Read several locations in memory into sequential registers.
     LoadMem(usize),
 }

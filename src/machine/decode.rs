@@ -22,6 +22,7 @@ impl Chip8Machine {
         )
     }
 
+    /// Convert the given opcode into the appropriate `Chip8Inst`.
     pub fn decode(&self, code: u16) -> Result<Chip8Inst, String> {
         let x = (code & 0x0f00) >> 8;
         let y = (code & 0x00f0) >> 4;

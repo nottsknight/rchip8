@@ -17,6 +17,8 @@ use std::sync::{
     atomic::{AtomicBool, AtomicU8},
     Arc, Condvar, Mutex,
 };
+use std::thread;
+use std::time::Duration;
 
 pub const DELAY_60HZ: u64 = 1_000_000_000 / 60;
 
@@ -53,23 +55,35 @@ pub enum Chip8Mode {
     Modern,
 }
 
+/// Type representing the display pixels.
 type Display = [bool; DISPLAY_WIDTH * DISPLAY_HEIGHT];
 
 pub struct Chip8Machine {
+    /// Flags whether to run in original or modern mode.
     mode: Chip8Mode,
-    // memory
+
+    /// Total memory available to the machine.
     memory: [u8; 4096],
+    /// Address stack for subroutines.
     stack: Vec<usize>,
+    /// Address of next instruction to run.
     prog_counter: usize,
-    // registers
+
+    /// 8-bit registers.
     registers: [u8; 16],
+    /// 16-bit register.
     index_reg: usize,
-    // timers
+
+    /// Current value of the delay timer.
     delay_timer: Arc<AtomicU8>,
+    /// Current value of the sound timer.
     sound_timer: Arc<AtomicU8>,
-    // display
+
+    /// The current state of the display pixels.
     display: Arc<Mutex<Display>>,
-    current_key: Arc<(Mutex<u8>, Condvar)>,
+    /// The current key being pressed along with its condition variable.
+    current_key: Arc<(Mutex<Option<u8>>, Condvar)>,
+    /// Flags whether the display needs to be redrawn or not.
     redraw: Arc<AtomicBool>,
 }
 
@@ -79,7 +93,7 @@ impl Chip8Machine {
         delay_timer: Arc<AtomicU8>,
         sound_timer: Arc<AtomicU8>,
         display: Arc<Mutex<Display>>,
-        current_key: Arc<(Mutex<u8>, Condvar)>,
+        current_key: Arc<(Mutex<Option<u8>>, Condvar)>,
         redraw: Arc<AtomicBool>,
     ) -> Chip8Machine {
         let mut vm = Chip8Machine {
@@ -100,13 +114,25 @@ impl Chip8Machine {
         vm
     }
 
+    /// Load the contents of the specified file into the machine's memory.
     pub fn load_rom(&mut self, filename: &str) -> std::io::Result<()> {
         let mut f = File::open(filename)?;
         f.read(&mut self.memory[self.prog_counter..])?;
         Ok(())
     }
 
-    pub fn fetch(&mut self) -> u16 {
+    /// Start the VM running its currently loaded program.
+    pub fn run_program(&mut self, frequency: Duration) {
+        loop {
+            let opcode = self.fetch();
+            let inst = self.decode(opcode).unwrap();
+            self.execute(inst);
+            thread::sleep(frequency);
+        }
+    }
+
+    /// Get the 16-bit opcode starting from the address stored in the program counter.
+    fn fetch(&mut self) -> u16 {
         let hi = self.memory[self.prog_counter] as u16;
         let lo = self.memory[self.prog_counter + 1] as u16;
         self.prog_counter += 2;
