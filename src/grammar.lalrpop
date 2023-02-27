@@ -1,0 +1,18 @@
+use std::str::FromStr;
+use crate::compiler::ast::Expr;
+
+grammar;
+
+Num: u16 = {
+    r"[0-9]+" => u16::from_str(<>).unwrap(),
+    r"0x[0-9a-fA-F]+" => u16::from_str_radix(<>, 16).unwrap(),
+}
+
+Ident: String = r"[a-z][a-zA-Z0-9_]*" => String::from(<>);
+
+pub Expression: Expr = {
+    Num => Expr::Number(<>),
+    Ident => Expr::Identifier(<>),
+    "read_delay()" => Expr::ReadDelay,
+    "read_key()" => Expr::ReadKey,
+}
