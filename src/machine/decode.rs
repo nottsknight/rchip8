@@ -93,3 +93,47 @@ impl Chip8Machine {
         }
     }
 }
+
+#[cfg(test)]
+mod decode_tests {
+    use super::*;
+    use crate::machine::{Chip8Mode, DISPLAY_HEIGHT, DISPLAY_WIDTH};
+    use std::sync::atomic::{AtomicBool, AtomicU8};
+    use std::sync::{Arc, Condvar, Mutex};
+
+    fn init_vm() -> Chip8Machine {
+        Chip8Machine::new(
+            Chip8Mode::Modern,
+            Arc::new(AtomicU8::new(0)),
+            Arc::new(AtomicU8::new(0)),
+            Arc::new(Mutex::new([false; DISPLAY_WIDTH * DISPLAY_HEIGHT])),
+            Arc::new((Mutex::new(None), Condvar::new())),
+            Arc::new(AtomicBool::new(false)),
+        )
+    }
+
+    fn assert_decode(code: u16, inst: Chip8Inst) {
+        let vm = init_vm();
+        assert_eq!(vm.decode(code), Ok(inst));
+    }
+
+    #[test]
+    fn test_decode_clear_screen() {
+        assert_decode(0x00e0, Chip8Inst::ClearScreen);
+    }
+
+    #[test]
+    fn test_decode_return() {
+        assert_decode(0x00ee, Chip8Inst::SubReturn);
+    }
+
+    #[test]
+    fn test_decode_jump() {
+        assert_decode(0x19af, Chip8Inst::Jump(0x9af));
+    }
+
+    #[test]
+    fn test_decode_subroutine() {
+        assert_decode(0x2bb3, Chip8Inst::SubCall(0xbb3));
+    }
+}

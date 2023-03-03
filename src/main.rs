@@ -114,6 +114,8 @@ fn start_vm(mode: Chip8Mode, rom_file: &str) {
 
         // Check for redraw
         if redraw.load(Ordering::Relaxed) {
+            redraw.store(false, Ordering::Relaxed);
+
             canvas.set_draw_color(Color::BLACK);
             canvas.clear();
 
@@ -128,7 +130,6 @@ fn start_vm(mode: Chip8Mode, rom_file: &str) {
                 }
             }
 
-            redraw.store(false, Ordering::Relaxed);
             canvas.present();
         }
 
