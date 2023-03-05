@@ -220,3 +220,32 @@ fn set_display_pixel(display: &mut Display, x: usize, y: usize, px: bool) -> boo
     display[y * DISPLAY_WIDTH + x] = px0 ^ px;
     px0 && (px ^ px0)
 }
+
+#[cfg(test)]
+mod execute_tests {
+    use super::*;
+    use rstest::*;
+    use std::sync::atomic::{AtomicBool, AtomicU8};
+    use std::sync::{Arc, Condvar, Mutex};
+
+    #[fixture]
+    fn vm() -> Chip8Machine {
+        Chip8Machine::new(
+            Chip8Mode::Modern,
+            Arc::new(AtomicU8::new(0)),
+            Arc::new(AtomicU8::new(0)),
+            Arc::new(Mutex::new([false; DISPLAY_WIDTH * DISPLAY_HEIGHT])),
+            Arc::new((Mutex::new(None), Condvar::new())),
+            Arc::new(AtomicBool::new(false)),
+        )
+    }
+
+    #[rstest]
+    #[case(0x0, 0xf)]
+    fn assign(mut vm: Chip8Machine, #[case] x: usize, #[case] y: usize) {
+        vm.registers[y] = 77;
+        let inst = Chip8Inst::Assign(x, y);
+        vm.execute(inst);
+        assert_eq!(77, vm.registers[x]);
+    }
+}
