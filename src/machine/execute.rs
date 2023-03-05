@@ -36,6 +36,7 @@ impl Chip8Machine {
                 None => panic!("Tried to pop an empty stack"),
             },
             Chip8Inst::Jump(n) => self.prog_counter = n,
+            Chip8Inst::JumpReg(n) => self.prog_counter = n + self.registers[0] as usize,
             Chip8Inst::SetIndex(n) => self.index_reg = n,
             Chip8Inst::AddIndex(x) => {
                 self.index_reg += self.registers[x] as usize;

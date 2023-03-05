@@ -22,6 +22,8 @@ pub enum Chip8Inst {
     MachineInst(usize),
     /// Jump to the specified address.
     Jump(usize),
+    /// Jump to the address found by adding the given value to V0.
+    JumpReg(usize),
     /// Call the subroutine that begins at the specified address.
     SubCall(usize),
     /// Return from the current subroutine.

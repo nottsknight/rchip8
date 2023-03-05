@@ -69,6 +69,7 @@ impl Chip8Machine {
                 }
             }
             0xa000 => Ok(Chip8Inst::SetIndex(nnn)),
+            0xb000 => Ok(Chip8Inst::JumpReg(nnn)),
             0xc000 => Ok(Chip8Inst::Random(x as usize, nn)),
             0xd000 => Ok(Chip8Inst::Display(x as usize, y as usize, n as u8)),
             0xe000 => match nn {
@@ -98,10 +99,12 @@ impl Chip8Machine {
 mod decode_tests {
     use super::*;
     use crate::machine::{Chip8Mode, DISPLAY_HEIGHT, DISPLAY_WIDTH};
+    use rstest::*;
     use std::sync::atomic::{AtomicBool, AtomicU8};
     use std::sync::{Arc, Condvar, Mutex};
 
-    fn init_vm() -> Chip8Machine {
+    #[fixture]
+    fn vm() -> Chip8Machine {
         Chip8Machine::new(
             Chip8Mode::Modern,
             Arc::new(AtomicU8::new(0)),
@@ -112,28 +115,57 @@ mod decode_tests {
         )
     }
 
-    fn assert_decode(code: u16, inst: Chip8Inst) {
-        let vm = init_vm();
-        assert_eq!(vm.decode(code), Ok(inst));
+    #[rstest]
+    #[case::machine_inst(0x0162, Chip8Inst::MachineInst(0x162))]
+    #[case::clear_screen(0x00e0, Chip8Inst::ClearScreen)]
+    #[case::sub_return(0x00ee, Chip8Inst::SubReturn)]
+    #[case::jump(0x1af2, Chip8Inst::Jump(0xaf2))]
+    #[case::subroutine(0x2cc3, Chip8Inst::SubCall(0xcc3))]
+    #[case::skip_eq_const(0x3b27, Chip8Inst::SkipEqConst(0xb, 0x27))]
+    #[case::skip_neq_const(0x4b27, Chip8Inst::SkipNeqConst(0xb, 0x27))]
+    #[case::skip_eq_reg(0x5c40, Chip8Inst::SkipEqReg(0xc, 0x4))]
+    #[case::set_reg_const(0x68f5, Chip8Inst::RegSet(0x8, 0xf5))]
+    #[case::reg_add(0x7b43, Chip8Inst::RegAddNoCarry(0xb, 0x43))]
+    #[case::set_reg_reg(0x83e0, Chip8Inst::Assign(0x3, 0xe))]
+    #[case::set_reg_or(0x8d21, Chip8Inst::BinOr(0xd, 0x2))]
+    #[case::set_reg_and(0x83e2, Chip8Inst::BinAnd(0x3, 0xe))]
+    #[case::set_reg_xor(0x87a3, Chip8Inst::BinXor(0x7, 0xa))]
+    #[case::arith_add(0x87a4, Chip8Inst::ArithAdd(0x7, 0xa))]
+    #[case::arith_sub(0x87a5, Chip8Inst::ArithSub(0x7, 0xa))]
+    #[case::shift_right(0x87a6, Chip8Inst::ShiftRight(0x7, 0xa))]
+    #[case::arith_sub_reverse(0x87a7, Chip8Inst::ArithSubReverse(0x7, 0xa))]
+    #[case::shift_left(0x87ae, Chip8Inst::ShiftLeft(0x7, 0xa))]
+    #[case::skip_neq_reg(0x9b30, Chip8Inst::SkipNeqReg(0xb, 0x3))]
+    #[case::set_index(0xa2c3, Chip8Inst::SetIndex(0x2c3))]
+    #[case::jump_add(0xb2f1, Chip8Inst::JumpReg(0x2f1))]
+    #[case::random(0xc243, Chip8Inst::Random(0x2, 0x43))]
+    #[case::display(0xdf4b, Chip8Inst::Display(0xf, 0x4, 0xb))]
+    #[case::skip_eq_key(0xe49e, Chip8Inst::SkipEqKey(0x4))]
+    #[case::skip_neq_key(0xe5a1, Chip8Inst::SkipNeqKey(0x5))]
+    #[case::get_delay(0xf207, Chip8Inst::ReadDelay(0x2))]
+    #[case::get_key(0xf70a, Chip8Inst::GetKey(0x7))]
+    #[case::set_delay(0xf915, Chip8Inst::SetDelay(0x9))]
+    #[case::set_sound(0xf218, Chip8Inst::SetSound(0x2))]
+    #[case::add_index(0xfa1e, Chip8Inst::AddIndex(0xa))]
+    #[case::load_font(0xf729, Chip8Inst::LoadFont(0x7))]
+    #[case::bcd(0xfb33, Chip8Inst::BCDConvert(0xb))]
+    #[case::reg_store(0xf955, Chip8Inst::StoreMem(0x9))]
+    #[case::reg_load(0xf965, Chip8Inst::LoadMem(0x9))]
+    fn test_decode_success(vm: Chip8Machine, #[case] input: u16, #[case] expected: Chip8Inst) {
+        assert_eq!(expected, vm.decode(input).unwrap());
     }
 
-    #[test]
-    fn test_decode_clear_screen() {
-        assert_decode(0x00e0, Chip8Inst::ClearScreen);
-    }
-
-    #[test]
-    fn test_decode_return() {
-        assert_decode(0x00ee, Chip8Inst::SubReturn);
-    }
-
-    #[test]
-    fn test_decode_jump() {
-        assert_decode(0x19af, Chip8Inst::Jump(0x9af));
-    }
-
-    #[test]
-    fn test_decode_subroutine() {
-        assert_decode(0x2bb3, Chip8Inst::SubCall(0xbb3));
+    #[rstest]
+    fn test_decode_fail(
+        vm: Chip8Machine,
+        #[values(
+            0x5121, 0x5122, 0x5123, 0x5124, 0x5125, 0x5126, 0x5127, 0x5128, 0x5129, 0x512a, 0x512b,
+            0x512c, 0x512d, 0x512e, 0x512f, 0x82e8, 0x82e9, 0x82ea, 0x82eb, 0x82ec, 0x82ed, 0x82ef,
+            0x9b31, 0x9b32, 0x9b33, 0x9b34, 0x9b35, 0x9b36, 0x9b37, 0x9b38, 0x9b39, 0x9b3a, 0x9b3b,
+            0x9b3c, 0x9b3d, 0x9b3e, 0x9b3f
+        )]
+        code: u16,
+    ) {
+        assert!(vm.decode(code).is_err());
     }
 }

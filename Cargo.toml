@@ -11,3 +11,6 @@ clap = { version = "4.1.4", features = ["derive"] }
 sdl2 = { version = "0.35.2", features = ["bundled", "static-link"] }
 log = "0.4.17"
 simple_logger = {version="4.0.0", features = ["default", "stderr", "threads"]}
+
+[dev-dependencies]
+rstest = "0.16.0"
