@@ -144,3 +144,59 @@ mod carry_borrow;
 mod decode;
 mod execute;
 mod insts;
+
+#[cfg(test)]
+mod vm_tests {
+    use super::*;
+    use rstest::*;
+
+    #[fixture]
+    fn vm() -> Chip8Machine {
+        Chip8Machine::new(
+            Chip8Mode::Modern,
+            Arc::new(AtomicU8::new(0)),
+            Arc::new(AtomicU8::new(0)),
+            Arc::new(Mutex::new([false; DISPLAY_WIDTH * DISPLAY_HEIGHT])),
+            Arc::new((Mutex::new(None), Condvar::new())),
+            Arc::new(AtomicBool::new(false)),
+        )
+    }
+
+    #[rstest]
+    fn test_load_font(vm: Chip8Machine) {
+        for i in 0..FONT.len() {
+            assert_eq!(FONT[i], vm.memory[FONT_BASE + i]);
+        }
+    }
+
+    #[rstest]
+    fn test_load_rom(mut vm: Chip8Machine) {
+        vm.load_rom("test/test.ch8").unwrap();
+        assert_eq!(0x12, vm.memory[0x200]);
+        assert_eq!(0x34, vm.memory[0x201]);
+        assert_eq!(0x56, vm.memory[0x202]);
+        assert_eq!(0x78, vm.memory[0x203]);
+        assert_eq!(0x9a, vm.memory[0x204]);
+        assert_eq!(0xbc, vm.memory[0x205]);
+        assert_eq!(0xde, vm.memory[0x206]);
+        assert_eq!(0xf0, vm.memory[0x207]);
+    }
+
+    #[rstest]
+    fn test_fetch(mut vm: Chip8Machine) {
+        vm.load_rom("test/test.ch8").unwrap();
+        let code = vm.fetch();
+        assert_eq!(0x1234, code);
+        assert_eq!(0x202, vm.prog_counter);
+    }
+
+    #[rstest]
+    fn test_successive_fetch(mut vm: Chip8Machine) {
+        vm.load_rom("test/test.ch8").unwrap();
+        assert_eq!(0x1234, vm.fetch());
+        assert_eq!(0x5678, vm.fetch());
+        assert_eq!(0x9abc, vm.fetch());
+        assert_eq!(0xdef0, vm.fetch());
+        assert_eq!(0x0000, vm.fetch());
+    }
+}
