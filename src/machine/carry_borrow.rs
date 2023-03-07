@@ -29,20 +29,26 @@ impl AddCarry for u8 {
 #[cfg(test)]
 mod add_carry_u8_tests {
     use super::AddCarry;
+    use rstest::*;
 
-    #[test]
-    fn add_no_overflow() {
-        assert_eq!(u8::add_carry(22, 44), (66, false));
+    #[rstest]
+    #[case(0x00, 0x00)]
+    #[case(0x00, 0xff)]
+    #[case(0xff, 0x00)]
+    #[case(0xef, 0x01)]
+    #[case(0x01, 0xef)]
+    fn test_add_no_overflow(#[case] n: u8, #[case] m: u8) {
+        let (sum, carry) = u8::add_carry(n, m);
+        assert_eq!(n+m, sum);
+        assert!(!carry);
     }
 
-    #[test]
-    fn add_overflow_zero() {
-        assert_eq!(u8::add_carry(0xfd, 0x3), (0, true));
-    }
-
-    #[test]
-    fn add_overflow_nonzero() {
-        assert_eq!(u8::add_carry(0xfd, 0xa), (7, true));
+    #[rstest]
+    #[case(0xff, 0x01)]
+    #[case(0x01, 0xff)]
+    fn test_add_overflow(#[case] n: u8, #[case] m: u8) {
+        let (_sum, carry) = u8::add_carry(n, m);
+        assert!(carry);
     }
 }
 
@@ -98,32 +104,38 @@ impl ShiftOverflow for u8 {
 #[cfg(test)]
 mod shift_overflow_u8_tests {
     use super::ShiftOverflow;
+    use rstest::*;
 
-    #[test]
-    fn test_shift_left_no_overflow() {
-        let (n, overflow) = u8::shift_left(0x71, 1);
-        assert_eq!(n, 0xe2);
-        assert!(!overflow);
+    #[rstest]
+    #[case(0x00)]
+    #[case(0x7f)]
+    #[case(0x80)]
+    #[case(0xff)]
+    fn test_shift_left(#[case] n: u8) {
+        let (n1, overflow) = u8::shift_left(n, 1);
+        if n > 0x7f {
+            assert_eq!((n & 0x7f) << 1, n1);
+            assert!(overflow);
+        } else {
+            assert_eq!(n << 1, n1);
+            assert!(!overflow);
+        }
     }
 
-    #[test]
-    fn test_shift_left_overflow() {
-        let (n, overflow) = u8::shift_left(0xe2, 1);
-        assert_eq!(n, 0xc4);
-        assert!(overflow);
-    }
-
-    #[test]
-    fn test_shift_right_no_underflow() {
-        let (n, underflow) = u8::shift_right(0xe2, 1);
-        assert_eq!(n, 0x71);
-        assert!(!underflow);
-    }
-
-    #[test]
-    fn test_shift_right_underflow() {
-        let (n, underflow) = u8::shift_right(0xe1, 1);
-        assert_eq!(n, 0x70);
-        assert!(underflow);
+    #[rstest]
+    #[case(0x00)]
+    #[case(0x01)]
+    #[case(0x0f)]
+    #[case(0xf0)]
+    #[case(0xff)]
+    fn test_shift_right(#[case] n: u8) {
+        let (n1, underflow) = u8::shift_right(n, 1);
+        if n % 2 == 1 {
+            assert_eq!((n & 0xfe) >> 1, n1);
+            assert!(underflow);
+        } else {
+            assert_eq!(n >> 1, n1);
+            assert!(!underflow);
+        }
     }
 }
