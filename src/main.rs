@@ -18,7 +18,7 @@ use machine::{Chip8Machine, Chip8Mode, DELAY_1MHZ, DELAY_60HZ, DISPLAY_HEIGHT, D
 use sdl2::{event::Event, keyboard::Scancode, pixels::Color, rect::Rect};
 use simple_logger::SimpleLogger;
 use std::sync::{
-    atomic::{AtomicBool, AtomicU8, Ordering},
+    atomic::{AtomicBool, Ordering},
     Arc, Condvar, Mutex,
 };
 use std::thread;
@@ -68,8 +68,8 @@ fn start_vm(mode: Chip8Mode, rom_file: &str) {
     canvas.present();
 
     // Create VM and load ROM
-    let delay_timer = Arc::new(AtomicU8::new(0));
-    let sound_timer = Arc::new(AtomicU8::new(0));
+    let delay_timer = Arc::new(Mutex::new(0));
+    let sound_timer = Arc::new(Mutex::new(0));
     let display = Arc::new(Mutex::new([false; DISPLAY_WIDTH * DISPLAY_HEIGHT]));
     let current_key = Arc::new((Mutex::new(None), Condvar::new()));
     let redraw = Arc::new(AtomicBool::new(false));
@@ -102,15 +102,17 @@ fn start_vm(mode: Chip8Mode, rom_file: &str) {
     let freq = Duration::from_nanos(DELAY_60HZ);
     'running: loop {
         // Decrement timers
-        let delay = delay_timer.load(Ordering::Acquire);
-        if delay > 0 {
-            delay_timer.store(delay - 1, Ordering::Release);
+        let mut delay = delay_timer.lock().unwrap();
+        if *delay > 0 {
+            *delay -= 1;
         }
+        drop(delay);
 
-        let sound = sound_timer.load(Ordering::Acquire);
-        if sound > 0 {
-            sound_timer.store(sound - 1, Ordering::Release);
+        let mut sound = sound_timer.lock().unwrap();
+        if *sound > 0 {
+            *sound -= 1;
         }
+        drop(sound);
 
         // Check for redraw
         if redraw.load(Ordering::Relaxed) {

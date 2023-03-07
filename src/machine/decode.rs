@@ -100,15 +100,15 @@ mod decode_tests {
     use super::*;
     use crate::machine::{Chip8Mode, DISPLAY_HEIGHT, DISPLAY_WIDTH};
     use rstest::*;
-    use std::sync::atomic::{AtomicBool, AtomicU8};
+    use std::sync::atomic::AtomicBool;
     use std::sync::{Arc, Condvar, Mutex};
 
     #[fixture]
     fn vm() -> Chip8Machine {
         Chip8Machine::new(
             Chip8Mode::Modern,
-            Arc::new(AtomicU8::new(0)),
-            Arc::new(AtomicU8::new(0)),
+            Arc::new(Mutex::new(0)),
+            Arc::new(Mutex::new(0)),
             Arc::new(Mutex::new([false; DISPLAY_WIDTH * DISPLAY_HEIGHT])),
             Arc::new((Mutex::new(None), Condvar::new())),
             Arc::new(AtomicBool::new(false)),

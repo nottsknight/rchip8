@@ -89,16 +89,16 @@ impl Chip8Machine {
                 self.registers[0xf] = if borrow { 1 } else { 0 }
             }
             Chip8Inst::ReadDelay(x) => {
-                let delay = self.delay_timer.load(Ordering::Acquire);
-                self.registers[x] = delay;
+                let delay = self.delay_timer.lock().unwrap();
+                self.registers[x] = *delay;
             }
             Chip8Inst::SetDelay(x) => {
-                let delay = self.registers[x];
-                self.delay_timer.store(delay, Ordering::Release);
+                let mut delay = self.delay_timer.lock().unwrap();
+                *delay = self.registers[x];
             }
             Chip8Inst::SetSound(x) => {
-                let sound = self.registers[x];
-                self.sound_timer.store(sound, Ordering::Release);
+                let mut sound = self.sound_timer.lock().unwrap();
+                *sound = self.registers[x];
             }
             Chip8Inst::Display(x_reg, y_reg, n) => {
                 let mut x = (self.registers[x_reg] & 63) as usize;
@@ -225,15 +225,15 @@ fn set_display_pixel(display: &mut Display, x: usize, y: usize, px: bool) -> boo
 mod execute_tests {
     use super::*;
     use rstest::*;
-    use std::sync::atomic::{AtomicBool, AtomicU8};
+    use std::sync::atomic::AtomicBool;
     use std::sync::{Arc, Condvar, Mutex};
 
     #[fixture]
     fn vm() -> Chip8Machine {
         Chip8Machine::new(
             Chip8Mode::Modern,
-            Arc::new(AtomicU8::new(0)),
-            Arc::new(AtomicU8::new(0)),
+            Arc::new(Mutex::new(0)),
+            Arc::new(Mutex::new(0)),
             Arc::new(Mutex::new([false; DISPLAY_WIDTH * DISPLAY_HEIGHT])),
             Arc::new((Mutex::new(None), Condvar::new())),
             Arc::new(AtomicBool::new(false)),

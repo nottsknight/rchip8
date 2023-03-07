@@ -14,7 +14,7 @@
 use std::fs::File;
 use std::io::Read;
 use std::sync::{
-    atomic::{AtomicBool, AtomicU8},
+    atomic::AtomicBool,
     Arc, Condvar, Mutex,
 };
 use std::thread;
@@ -75,9 +75,9 @@ pub struct Chip8Machine {
     index_reg: usize,
 
     /// Current value of the delay timer.
-    delay_timer: Arc<AtomicU8>,
+    delay_timer: Arc<Mutex<u8>>,
     /// Current value of the sound timer.
-    sound_timer: Arc<AtomicU8>,
+    sound_timer: Arc<Mutex<u8>>,
 
     /// The current state of the display pixels.
     display: Arc<Mutex<Display>>,
@@ -90,8 +90,8 @@ pub struct Chip8Machine {
 impl Chip8Machine {
     pub fn new(
         mode: Chip8Mode,
-        delay_timer: Arc<AtomicU8>,
-        sound_timer: Arc<AtomicU8>,
+        delay_timer: Arc<Mutex<u8>>,
+        sound_timer: Arc<Mutex<u8>>,
         display: Arc<Mutex<Display>>,
         current_key: Arc<(Mutex<Option<u8>>, Condvar)>,
         redraw: Arc<AtomicBool>,
@@ -154,8 +154,8 @@ mod vm_tests {
     fn vm() -> Chip8Machine {
         Chip8Machine::new(
             Chip8Mode::Modern,
-            Arc::new(AtomicU8::new(0)),
-            Arc::new(AtomicU8::new(0)),
+            Arc::new(Mutex::new(0)),
+            Arc::new(Mutex::new(0)),
             Arc::new(Mutex::new([false; DISPLAY_WIDTH * DISPLAY_HEIGHT])),
             Arc::new((Mutex::new(None), Condvar::new())),
             Arc::new(AtomicBool::new(false)),
