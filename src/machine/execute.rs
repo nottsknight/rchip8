@@ -242,10 +242,52 @@ mod execute_tests {
 
     #[rstest]
     #[case(0x0, 0xf)]
-    fn assign(mut vm: Chip8Machine, #[case] x: usize, #[case] y: usize) {
+    fn test_assign(mut vm: Chip8Machine, #[case] x: usize, #[case] y: usize) {
         vm.registers[y] = 77;
         let inst = Chip8Inst::Assign(x, y);
         vm.execute(inst);
         assert_eq!(77, vm.registers[x]);
+    }
+
+    #[rstest]
+    fn test_bcd_convert(mut vm: Chip8Machine) {
+        vm.registers[0x0] = 0xd4;
+        vm.index_reg = 0x500;
+        let inst = Chip8Inst::BCDConvert(0x0);
+        vm.execute(inst);
+
+        assert_eq!(0x2, vm.memory[0x500]);
+        assert_eq!(0x1, vm.memory[0x501]);
+        assert_eq!(0x2, vm.memory[0x502]);
+    }
+
+    #[rstest]
+    fn test_store_mem_modern(mut vm: Chip8Machine) {
+        vm.registers[0x0] = 0x5;
+        vm.registers[0x1] = 0xa;
+        vm.registers[0x2] = 0xf;
+        vm.index_reg = 0x500;
+
+        let inst = Chip8Inst::StoreMem(0x2);
+        vm.execute(inst);
+
+        assert_eq!(0x5, vm.memory[0x500]);
+        assert_eq!(0xa, vm.memory[0x501]);
+        assert_eq!(0xf, vm.memory[0x502]);
+    }
+
+    #[rstest]
+    fn test_load_mem_modern(mut vm: Chip8Machine) {
+        vm.memory[0x500] = 0x5;
+        vm.memory[0x501] = 0xa;
+        vm.memory[0x502] = 0xf;
+        vm.index_reg = 0x500;
+
+        let inst = Chip8Inst::LoadMem(0x2);
+        vm.execute(inst);
+
+        assert_eq!(0x5, vm.registers[0x0]);
+        assert_eq!(0xa, vm.registers[0x1]);
+        assert_eq!(0xf, vm.registers[0x2]);
     }
 }

@@ -162,6 +162,12 @@ mod vm_tests {
         )
     }
 
+    #[fixture]
+    fn vm_with_rom(mut vm: Chip8Machine) -> Chip8Machine {
+        vm.load_rom("test/test.ch8").unwrap();
+        vm
+    }
+
     #[rstest]
     fn test_load_font(vm: Chip8Machine) {
         for i in 0..FONT.len() {
@@ -170,29 +176,33 @@ mod vm_tests {
     }
 
     #[rstest]
-    fn test_load_rom(mut vm: Chip8Machine) {
-        vm.load_rom("test/test.ch8").unwrap();
-        assert_eq!(0x12, vm.memory[0x200]);
-        assert_eq!(0x34, vm.memory[0x201]);
-        assert_eq!(0x56, vm.memory[0x202]);
-        assert_eq!(0x78, vm.memory[0x203]);
-        assert_eq!(0x9a, vm.memory[0x204]);
-        assert_eq!(0xbc, vm.memory[0x205]);
-        assert_eq!(0xde, vm.memory[0x206]);
-        assert_eq!(0xf0, vm.memory[0x207]);
+    #[case(0x00, 0x1ff)]
+    #[case(0x12, 0x200)]
+    #[case(0x34, 0x201)]
+    #[case(0x56, 0x202)]
+    #[case(0x78, 0x203)]
+    #[case(0x9a, 0x204)]
+    #[case(0xbc, 0x205)]
+    #[case(0xde, 0x206)]
+    #[case(0xf0, 0x207)]
+    #[case(0x00, 0x208)]
+    fn test_load_rom(#[from(vm_with_rom)] vm: Chip8Machine, #[case] expected: u8, #[case] addr: usize) {
+        assert_eq!(expected, vm.memory[addr]);
     }
 
     #[rstest]
-    fn test_fetch(mut vm: Chip8Machine) {
-        vm.load_rom("test/test.ch8").unwrap();
+    #[case(0x200, 0x1234)]
+    #[case(0x202, 0x5678)]
+    #[case(0x204, 0x9abc)]
+    #[case(0x206, 0xdef0)]
+    fn test_fetch(#[from(vm_with_rom)] mut vm: Chip8Machine, #[case] pc: usize, #[case] expected: u16) {
+        vm.prog_counter = pc;
         let code = vm.fetch();
-        assert_eq!(0x1234, code);
-        assert_eq!(0x202, vm.prog_counter);
+        assert_eq!(expected, code);
     }
 
     #[rstest]
-    fn test_successive_fetch(mut vm: Chip8Machine) {
-        vm.load_rom("test/test.ch8").unwrap();
+    fn test_successive_fetch(#[from(vm_with_rom)] mut vm: Chip8Machine) {
         assert_eq!(0x1234, vm.fetch());
         assert_eq!(0x5678, vm.fetch());
         assert_eq!(0x9abc, vm.fetch());

@@ -115,8 +115,8 @@ fn start_vm(mode: Chip8Mode, rom_file: &str) {
         drop(sound);
 
         // Check for redraw
-        if redraw.load(Ordering::Relaxed) {
-            redraw.store(false, Ordering::Relaxed);
+        if redraw.load(Ordering::Acquire) {
+            redraw.store(false, Ordering::Release);
 
             canvas.set_draw_color(Color::BLACK);
             canvas.clear();
