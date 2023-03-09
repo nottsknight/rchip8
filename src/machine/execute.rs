@@ -290,4 +290,38 @@ mod execute_tests {
         assert_eq!(0xa, vm.registers[0x1]);
         assert_eq!(0xf, vm.registers[0x2]);
     }
+
+    #[rstest]
+    fn test_read_delay(mut vm: Chip8Machine) {
+        let mut delay = vm.delay_timer.lock().unwrap();
+        *delay = 0x10;
+        drop(delay);
+
+        let inst = Chip8Inst::ReadDelay(0x0);
+        vm.execute(inst);
+
+        assert_eq!(0x10, vm.registers[0x0]);
+    }
+
+    #[rstest]
+    fn test_set_delay(mut vm: Chip8Machine) {
+        vm.registers[0x0] = 0x20;
+
+        let inst = Chip8Inst::SetDelay(0x0);
+        vm.execute(inst);
+
+        let delay = vm.delay_timer.lock().unwrap();
+        assert_eq!(0x20, *delay);
+    }
+
+    #[rstest]
+    fn test_set_sound(mut vm: Chip8Machine) {
+        vm.registers[0x0] = 0x20;
+
+        let inst = Chip8Inst::SetSound(0x0);
+        vm.execute(inst);
+
+        let sound = vm.sound_timer.lock().unwrap();
+        assert_eq!(0x20, *sound);
+    }
 }

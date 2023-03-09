@@ -13,10 +13,7 @@
 
 use std::fs::File;
 use std::io::Read;
-use std::sync::{
-    atomic::AtomicBool,
-    Arc, Condvar, Mutex,
-};
+use std::sync::{atomic::AtomicBool, Arc, Condvar, Mutex};
 use std::thread;
 use std::time::Duration;
 
@@ -186,7 +183,11 @@ mod vm_tests {
     #[case(0xde, 0x206)]
     #[case(0xf0, 0x207)]
     #[case(0x00, 0x208)]
-    fn test_load_rom(#[from(vm_with_rom)] vm: Chip8Machine, #[case] expected: u8, #[case] addr: usize) {
+    fn test_load_rom(
+        #[from(vm_with_rom)] vm: Chip8Machine,
+        #[case] expected: u8,
+        #[case] addr: usize,
+    ) {
         assert_eq!(expected, vm.memory[addr]);
     }
 
@@ -195,7 +196,11 @@ mod vm_tests {
     #[case(0x202, 0x5678)]
     #[case(0x204, 0x9abc)]
     #[case(0x206, 0xdef0)]
-    fn test_fetch(#[from(vm_with_rom)] mut vm: Chip8Machine, #[case] pc: usize, #[case] expected: u16) {
+    fn test_fetch(
+        #[from(vm_with_rom)] mut vm: Chip8Machine,
+        #[case] pc: usize,
+        #[case] expected: u16,
+    ) {
         vm.prog_counter = pc;
         let code = vm.fetch();
         assert_eq!(expected, code);
