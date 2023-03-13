@@ -14,6 +14,7 @@
 mod machine;
 
 use clap::Parser;
+use machine::disassemble::disassemble;
 use machine::{Chip8Machine, Chip8Mode, DELAY_1MHZ, DELAY_60HZ, DISPLAY_HEIGHT, DISPLAY_WIDTH};
 use sdl2::{event::Event, keyboard::Scancode, pixels::Color, rect::Rect};
 use simple_logger::SimpleLogger;
@@ -34,6 +35,9 @@ struct Chip8Args {
     /// Run in original mode
     #[arg(long, short)]
     original: bool,
+    /// Output addresses when disassembling (starting at 0x200)
+    #[arg(short, long)]
+    addresses: bool,
     /// Disassemble the ROM instead of executing it
     #[arg(long, short)]
     disassemble: bool,
@@ -45,7 +49,7 @@ fn main() {
     let args = Chip8Args::parse();
 
     if args.disassemble {
-        disassemble(&args.rom_file);
+        run_disassemble(&args.rom_file, args.addresses);
     } else {
         let mode = if args.original {
             Chip8Mode::Original
@@ -57,12 +61,23 @@ fn main() {
     }
 }
 
-fn disassemble(rom_file: &str) {
+fn run_disassemble(rom_file: &str, addresses: bool) {
     if let Ok(mut f) = File::open(rom_file) {
         let mut buf = [0u8; 2];
+        let mut pc = 0x200;
         while let Ok(2) = f.read(&mut buf[..]) {
             let code = (buf[0] as u16) << 8 | (buf[1] as u16);
-            println!("{:#06x}", code);
+            match Chip8Machine::decode(code) {
+                Ok(inst) => {
+                    if addresses {
+                        println!("{}", disassemble(Some(pc), inst));
+                    } else {
+                        println!("{}", disassemble(None, inst));
+                    }
+                }
+                Err(_) => println!("NOP"),
+            }
+            pc += 2;
         }
     }
 }

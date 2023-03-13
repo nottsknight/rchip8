@@ -22,8 +22,16 @@ impl Chip8Machine {
         )
     }
 
+    pub fn decode_run(&self, code: u16) -> Result<Chip8Inst, String> {
+        if let Ok(inst) = Chip8Machine::decode(code) {
+            Ok(inst)
+        } else {
+            Err(self.bad_instruction(code))
+        }
+    }
+
     /// Convert the given opcode into the appropriate `Chip8Inst`.
-    pub fn decode(&self, code: u16) -> Result<Chip8Inst, String> {
+    pub fn decode(code: u16) -> Result<Chip8Inst, ()> {
         let x = (code & 0x0f00) >> 8;
         let y = (code & 0x00f0) >> 4;
         let n = code & 0x000f;
@@ -44,7 +52,7 @@ impl Chip8Machine {
                 if n == 0 {
                     Ok(Chip8Inst::SkipEqReg(x as usize, y as usize))
                 } else {
-                    Err(self.bad_instruction(code))
+                    Err(())
                 }
             }
             0x6000 => Ok(Chip8Inst::RegSet(x as usize, nn)),
@@ -59,13 +67,13 @@ impl Chip8Machine {
                 0x6 => Ok(Chip8Inst::ShiftRight(x as usize, y as usize)),
                 0x7 => Ok(Chip8Inst::ArithSubReverse(x as usize, y as usize)),
                 0xe => Ok(Chip8Inst::ShiftLeft(x as usize, y as usize)),
-                _ => Err(self.bad_instruction(code)),
+                _ => Err(()),
             },
             0x9000 => {
                 if n == 0 {
                     Ok(Chip8Inst::SkipNeqReg(x as usize, y as usize))
                 } else {
-                    Err(self.bad_instruction(code))
+                    Err(())
                 }
             }
             0xa000 => Ok(Chip8Inst::SetIndex(nnn)),
@@ -76,7 +84,7 @@ impl Chip8Machine {
                 0x9e => Ok(Chip8Inst::SkipEqKey(x as usize)),
                 0xa1 => Ok(Chip8Inst::SkipNeqKey(x as usize)),
                 0x0a => Ok(Chip8Inst::GetKey(x as usize)),
-                _ => Err(self.bad_instruction(code)),
+                _ => Err(()),
             },
             0xf000 => match nn {
                 0x07 => Ok(Chip8Inst::ReadDelay(x as usize)),
@@ -88,9 +96,9 @@ impl Chip8Machine {
                 0x33 => Ok(Chip8Inst::BCDConvert(x as usize)),
                 0x55 => Ok(Chip8Inst::StoreMem(x as usize)),
                 0x65 => Ok(Chip8Inst::LoadMem(x as usize)),
-                _ => Err(self.bad_instruction(code)),
+                _ => Err(()),
             },
-            _ => Err(self.bad_instruction(code)),
+            _ => Err(()),
         }
     }
 }
@@ -151,13 +159,12 @@ mod decode_tests {
     #[case::bcd(0xfb33, Chip8Inst::BCDConvert(0xb))]
     #[case::reg_store(0xf955, Chip8Inst::StoreMem(0x9))]
     #[case::reg_load(0xf965, Chip8Inst::LoadMem(0x9))]
-    fn test_decode_success(vm: Chip8Machine, #[case] input: u16, #[case] expected: Chip8Inst) {
-        assert_eq!(expected, vm.decode(input).unwrap());
+    fn test_decode_success(#[case] input: u16, #[case] expected: Chip8Inst) {
+        assert_eq!(expected, Chip8Machine::decode(input).unwrap());
     }
 
     #[rstest]
     fn test_decode_fail(
-        vm: Chip8Machine,
         #[values(
             0x5121, 0x5122, 0x5123, 0x5124, 0x5125, 0x5126, 0x5127, 0x5128, 0x5129, 0x512a, 0x512b,
             0x512c, 0x512d, 0x512e, 0x512f, 0x82e8, 0x82e9, 0x82ea, 0x82eb, 0x82ec, 0x82ed, 0x82ef,
@@ -166,6 +173,6 @@ mod decode_tests {
         )]
         code: u16,
     ) {
-        assert!(vm.decode(code).is_err());
+        assert!(Chip8Machine::decode(code).is_err());
     }
 }

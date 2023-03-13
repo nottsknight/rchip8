@@ -122,7 +122,7 @@ impl Chip8Machine {
     pub fn run_program(&mut self, frequency: Duration) {
         loop {
             let opcode = self.fetch();
-            let inst = self.decode(opcode).unwrap();
+            let inst = self.decode_run(opcode).unwrap();
             self.execute(inst);
             thread::sleep(frequency);
         }
@@ -141,6 +141,7 @@ mod carry_borrow;
 mod decode;
 mod execute;
 mod insts;
+pub mod disassemble;
 
 #[cfg(test)]
 mod vm_tests {
