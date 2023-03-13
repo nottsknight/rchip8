@@ -17,6 +17,8 @@ use clap::Parser;
 use machine::{Chip8Machine, Chip8Mode, DELAY_1MHZ, DELAY_60HZ, DISPLAY_HEIGHT, DISPLAY_WIDTH};
 use sdl2::{event::Event, keyboard::Scancode, pixels::Color, rect::Rect};
 use simple_logger::SimpleLogger;
+use std::fs::File;
+use std::io::Read;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc, Condvar, Mutex,
@@ -32,6 +34,9 @@ struct Chip8Args {
     /// Run in original mode
     #[arg(long, short)]
     original: bool,
+    /// Disassemble the ROM instead of executing it
+    #[arg(long, short)]
+    disassemble: bool,
 }
 
 fn main() {
@@ -39,13 +44,27 @@ fn main() {
 
     let args = Chip8Args::parse();
 
-    let mode = if args.original {
-        Chip8Mode::Original
+    if args.disassemble {
+        disassemble(&args.rom_file);
     } else {
-        Chip8Mode::Modern
-    };
+        let mode = if args.original {
+            Chip8Mode::Original
+        } else {
+            Chip8Mode::Modern
+        };
 
-    start_vm(mode, &args.rom_file);
+        start_vm(mode, &args.rom_file);
+    }
+}
+
+fn disassemble(rom_file: &str) {
+    if let Ok(mut f) = File::open(rom_file) {
+        let mut buf = [0u8; 2];
+        while let Ok(2) = f.read(&mut buf[..]) {
+            let code = (buf[0] as u16) << 8 | (buf[1] as u16);
+            println!("{:#06x}", code);
+        }
+    }
 }
 
 fn start_vm(mode: Chip8Mode, rom_file: &str) {
@@ -166,7 +185,11 @@ fn start_vm(mode: Chip8Mode, rom_file: &str) {
                     if key.is_some() {
                         cvar.notify_one();
                     }
-                    drop(key);
+                }
+                Event::KeyUp { .. } => {
+                    let (lock, _) = &*current_key;
+                    let mut key = lock.lock().unwrap();
+                    *key = None;
                 }
                 _ => (),
             }
