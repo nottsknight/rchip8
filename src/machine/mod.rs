@@ -139,9 +139,9 @@ impl Chip8Machine {
 
 mod carry_borrow;
 mod decode;
+pub mod disassemble;
 mod execute;
 mod insts;
-pub mod disassemble;
 
 #[cfg(test)]
 mod vm_tests {

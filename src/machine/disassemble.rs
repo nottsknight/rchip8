@@ -6,7 +6,7 @@ pub fn disassemble(pc: Option<usize>, inst: Chip8Inst) -> String {
         Chip8Inst::Display(x, y, height) => format!("draw    {:X}h, {:X}h, {:X}h", x, y, height),
         Chip8Inst::MachineInst(nnn) => format!("mc      {:X}h", nnn),
         Chip8Inst::Jump(nnn) => format!("jmp     {:X}h", nnn),
-        Chip8Inst::JumpReg(nnn) => format!("jmpv   , {:X}h", nnn),
+        Chip8Inst::JumpReg(nnn) => format!("jmpv    {:X}h", nnn),
         Chip8Inst::SubCall(nnn) => format!("call    {:X}h", nnn),
         Chip8Inst::SubReturn => "retn".to_string(),
         Chip8Inst::SkipEqConst(x, nn) => format!("skipeq  V{:X}, {:X}h", x, nn),
@@ -40,7 +40,7 @@ pub fn disassemble(pc: Option<usize>, inst: Chip8Inst) -> String {
     };
 
     if pc.is_some() {
-        format!("{:#06x}: {}", pc.unwrap(), s)
+        format!("{:#06x}    {}", pc.unwrap(), s)
     } else {
         format!("{}", s)
     }
