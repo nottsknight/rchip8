@@ -1,3 +1,0 @@
-[submodule "chip8-roms"]
-	path = chip8-roms
-	url = git@github.com:kripod/chip8-roms
