@@ -11,11 +11,11 @@
 // You should have received a copy of the GNU General Public License along with rchip8.
 // If not, see <https://www.gnu.org/licenses/>.
 
-mod machine;
-
 use clap::Parser;
-use machine::disassemble::disassemble;
-use machine::{Chip8Machine, Chip8Mode, DELAY_1MHZ, DELAY_60HZ, DISPLAY_HEIGHT, DISPLAY_WIDTH};
+use rchip8::{
+    disassemble::disassemble, Chip8Machine, Chip8Mode, DELAY_1MHZ, DELAY_60HZ, DISPLAY_HEIGHT,
+    DISPLAY_WIDTH,
+};
 use sdl2::{event::Event, keyboard::Scancode, pixels::Color, rect::Rect};
 use simple_logger::SimpleLogger;
 use std::fs::File;

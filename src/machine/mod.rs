@@ -137,11 +137,11 @@ impl Chip8Machine {
     }
 }
 
-mod carry_borrow;
-mod decode;
+pub mod carry_borrow;
+pub mod decode;
 pub mod disassemble;
-mod execute;
-mod insts;
+pub mod execute;
+pub mod insts;
 
 #[cfg(test)]
 mod vm_tests {
