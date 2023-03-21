@@ -1,0 +1,14 @@
+use crate::machine::insts::Chip8Inst;
+
+grammar;
+
+VarRegister: u8 = r"V[0-9a-fA-F]" => u8::from_str_radix(&<>[1..], 16);
+
+OffsetAddr: i16 = r"[+-][0-9a-fA-F]+" => i16::from_str_radix(&<>[1..], 16);
+
+pub Instruction: Chip8Inst = {
+    "clr" => Chip8Inst::ClearScreen,
+    "retn" => Chip8Inst::SubReturn,
+    "jump" <OffsetAddr> => Chip8Inst::Jump(<>),
+    "call" <OffsetAddr> => Chip8Inst::SubCall(<>),
+}

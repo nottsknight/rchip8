@@ -12,7 +12,7 @@
 // If not, see <https://www.gnu.org/licenses/>.
 
 use clap::Parser;
-use rchip8::{
+use rchip8::machine::{
     disassemble::disassemble, Chip8Machine, Chip8Mode, DELAY_1MHZ, DELAY_60HZ, DISPLAY_HEIGHT,
     DISPLAY_WIDTH,
 };
@@ -213,3 +213,4 @@ fn start_vm(mode: Chip8Mode, rom_file: &str) {
         thread::sleep(freq);
     }
 }
+
