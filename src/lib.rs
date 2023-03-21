@@ -1,3 +1,2 @@
-mod machine;
-
-pub use machine::*;
+pub mod compiler;
+pub mod machine;
