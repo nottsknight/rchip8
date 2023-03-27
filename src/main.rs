@@ -11,6 +11,11 @@
 // You should have received a copy of the GNU General Public License along with rchip8.
 // If not, see <https://www.gnu.org/licenses/>.
 
+#[macro_use]
+extern crate lalrpop_util;
+
+lalrpop_mod!(pub c8asm);
+
 use clap::Parser;
 use rchip8::machine::{
     disassemble::disassemble, Chip8Machine, Chip8Mode, DELAY_1MHZ, DELAY_60HZ, DISPLAY_HEIGHT,

@@ -1,14 +1,15 @@
-use crate::machine::insts::Chip8Inst;
+use rchip8::machine::insts::Chip8Inst;
 
 grammar;
 
-VarRegister: u8 = r"V[0-9a-fA-F]" => u8::from_str_radix(&<>[1..], 16);
+VarRegister: usize = r"V[0-9a-fA-F]" => usize::from_str_radix(&<>[1..], 16).unwrap();
 
-OffsetAddr: i16 = r"[+-][0-9a-fA-F]+" => i16::from_str_radix(&<>[1..], 16);
+Addr: usize = r"[0-9a-fA-F]+" => usize::from_str_radix(<>, 16).unwrap();
 
 pub Instruction: Chip8Inst = {
     "clr" => Chip8Inst::ClearScreen,
     "retn" => Chip8Inst::SubReturn,
-    "jump" <OffsetAddr> => Chip8Inst::Jump(<>),
-    "call" <OffsetAddr> => Chip8Inst::SubCall(<>),
-}
+    "jump" <Addr> => Chip8Inst::Jump(<>),
+    "call" <Addr> => Chip8Inst::SubCall(<>),
+    "mov" <x:VarRegister> "," <y:VarRegister> => Chip8Inst::Assign(x, y),
+};

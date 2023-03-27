@@ -4,8 +4,6 @@ use std::io::{BufWriter, Result, Write};
 
 mod inst_into_u16;
 
-pub fn compile() {}
-
 pub fn emit_code(filename: &str, insts: Vec<Chip8Inst>) -> Result<()> {
     let f = File::open(filename)?;
     let mut w = BufWriter::new(f);
@@ -16,4 +14,3 @@ pub fn emit_code(filename: &str, insts: Vec<Chip8Inst>) -> Result<()> {
     w.flush()?;
     Ok(())
 }
-
