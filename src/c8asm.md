@@ -54,7 +54,7 @@ by either two or four hex digits. The two groups of two can optionally be separa
 by a space.
 
 ## Grammar
-
+```
 Prog := Inst Prog
 Prog := epsilon
 
@@ -114,6 +114,7 @@ Add := RegLit
 Add := "I" "," LitHex3
 
 Draw := GenReg "," GenReg "," r"[0-9a-fA-F]"
+```
 
 ## First and follow
 
