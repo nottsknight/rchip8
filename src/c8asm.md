@@ -9,43 +9,43 @@ timers are accessed like registers using the names `S` and `D` respectively.
 
 ## Instructions
 
-| opcode | instruction       |
-| =======|===================|
-| 0x0nnn | mc      nnn       |
-| 0x00e0 | clr               |
-| 0x00ee | retn              |
-| 0x1nnn | jmp     nnn       |
-| 0x2nnn | call    nnn       |
-| 0x3xnn | skipeq  Vx, nn    |
-| 0x4xnn | skipne  Vx, nn    |
-| 0x5xy0 | skipeq  Vx, Vy    |
-| 0x6xnn | mov     Vx, nn    |
-| 0x7xnn | add     Vx, nn    |
-| 0x8xy0 | mov     Vx, Vy    |
-| 0x8xy1 | or      Vx, Vy    |
-| 0x8xy2 | and     Vx, Vy    |
-| 0x8xy3 | xor     Vx, Vy    |
-| 0x8xy4 | addc    Vx, Vy    |
-| 0x8xy5 | sub     Vx, Vy    |
-| 0x8xy6 | rshift  Vx, Vy    |
-| 0x8xy7 | subr    Vx, Vy    |
-| 0x8xye | lshift  Vx, Vy    |
-| 0x9xy0 | skipne  Vx, Vy    |
-| 0xannn | mov     I, nnn    |
-| 0xbnnn | jmpv    nnn       |
-| 0xcxnn | rndmov  Vx, nn    |
-| 0xdxyn | draw    Vx, Vy, n |
-| 0xex9e | skipkeq Vx        |
-| 0xexa1 | skipkne Vx        |
-| 0xfx07 | mov     Vx, D     |
-| 0xfx0a | input   Vx        |
-| 0xfx15 | mov     D, Vx     |
-| 0xfx18 | mov     S, Vx     |
-| 0xfx1e | add     I, Vx     |
-| 0xfx29 | sprite  Vx        |
-| 0xfx33 | bcd     Vx        |
-| 0xfx55 | store   Vx        |
-| 0xfx65 | load    Vx        |
+| opcode | instruction         |
+| =======|=====================|
+| 0nnn   | `mc      nnn      ` |
+| 00e0   | `clr              ` |
+| 00ee   | `retn             ` |
+| 1nnn   | `jmp     nnn      ` |
+| 2nnn   | `call    nnn      ` |
+| 3xnn   | `skipeq  Vx, nn   ` |
+| 4xnn   | `skipne  Vx, nn   ` |
+| 5xy0   | `skipeq  Vx, Vy   ` |
+| 6xnn   | `mov     Vx, nn   ` |
+| 7xnn   | `add     Vx, nn   ` |
+| 8xy0   | `mov     Vx, Vy   ` |
+| 8xy1   | `or      Vx, Vy   ` |
+| 8xy2   | `and     Vx, Vy   ` |
+| 8xy3   | `xor     Vx, Vy   ` |
+| 8xy4   | `addc    Vx, Vy   ` |
+| 8xy5   | `sub     Vx, Vy   ` |
+| 8xy6   | `rshift  Vx, Vy   ` |
+| 8xy7   | `subr    Vx, Vy   ` |
+| 8xye   | `lshift  Vx, Vy   ` |
+| 9xy0   | `skipne  Vx, Vy   ` |
+| annn   | `mov     I, nnn   ` |
+| bnnn   | `jmpv    nnn      ` |
+| cxnn   | `rndmov  Vx, nn   ` |
+| dxyn   | `draw    Vx, Vy, n` |
+| ex9e   | `skipkeq Vx       ` |
+| exa1   | `skipkne Vx       ` |
+| fx07   | `mov     Vx, D    ` |
+| fx0a   | `input   Vx       ` |
+| fx15   | `mov     D, Vx    ` |
+| fx18   | `mov     S, Vx    ` |
+| fx1e   | `add     I, Vx    ` |
+| fx29   | `sprite  Vx       ` |
+| fx33   | `bcd     Vx       ` |
+| fx55   | `store   Vx       ` |
+| fx65   | `load    Vx       ` |
 
 ## Data
 
@@ -55,11 +55,120 @@ by a space.
 
 ## Grammar
 
-S := "clr" | "retn" | J
-M := "mov" M1
-M1 := V "," V
-      | V "," N
-      | "I" "," N
-N := [0-9a-f]N | epsilon
-V := "V1" | "V2" | "V3" | "V4" | "V5" | "V6" | "V7" | "V8" | "V9"
-     | "Va" | "Vb" | "Vc" | "Vd" | "Ve" | "Vf"
+Prog := Inst Prog
+Prog := epsilon
+
+Inst := "mc" LitHex3
+Inst := "clr"
+Inst := "retn"
+Inst := "jmp" LitHex3
+Inst := "call" LitHex3
+Inst := "skipeq" SkipArgs
+Inst := "skipne" SkipArgs
+Inst := "mov" Mov
+Inst := "add" Add
+Inst := "or" RegPair
+Inst := "and" RegPair
+Inst := "xor" RegPair
+Inst := "addc" RegPair
+Inst := "sub" RegPair
+Inst := "rshift" RegPair
+Inst := "subr" RegPair
+Inst := "lshift" RegPair
+Inst := "jmpv" LitHex3
+Inst := "rndmov" RegLit
+Inst := "draw" Draw
+Inst := "input" GenReg
+Inst := "sprite" GenReg
+Inst := "bcd" GenReg
+Inst := "store" GenReg
+Inst := "load" GenReg
+Inst := Data 
+
+LitHex4 := r"[0-9a-fA-F]{4}"
+LitHex3 := r"[0-9a-fA-F]{3}"
+LitHex2 := r"[0-9a-fA-F]{2}"
+
+Data := LitHex4
+Data := LitHex2 LitHex2
+
+SkipArgs := RegLit
+SkipArgs := RegPair
+
+GenReg := r"V[0-9a-fA-F]"
+
+RegPair := GenReg "," GenReg
+
+RegLit := GenReg "," LitHex2
+
+Mov := GenReg "," MovGenReg
+Mov := "D" "," GenReg
+Mov := "S" "," GenReg
+Mov := "I" "," LitHex3
+
+MovGenReg := LitHex2
+MovGenReg := GenReg
+MovGenReg := "D"
+
+Add := RegLit
+Add := "I" "," LitHex3
+
+Draw := GenReg "," GenReg "," r"[0-9a-fA-F]"
+
+## First and follow
+
+first(Prog) = { "mc", "clr", "retn", "jmp", "call", "skipeq", "skipne", "mov", "add",
+    "or", "and", "xor", "addc", "sub", "rshift", "subr", "lshift", "jmpv",
+    "rndmov", "draw", "input", "sprite", "bcd", "store", "load", epsilon }
+
+first(Inst) = { "mc", "clr", "retn", "jmp", "call", "skipeq", "skipne", "mov", "add",
+    "or", "and", "xor", "addc", "sub", "rshift", "subr", "lshift", "jmpv",
+    "rndmov", "draw", "input", "sprite", "bcd", "store", "load" }
+
+first(LitHex2) = [0-9a-fA-F]
+
+first(LitHex3) = [0-9a-fA-F]
+
+first(LitHex4) = [0-9a-fA-F]
+
+first(SkipArgs) = "V"
+
+first(GenReg) = "V"
+
+first(RegPair) = "V"
+
+first(RegLit) = "V"
+
+first(Mov) = { "V", "D", "S", "I" }
+
+first(MovGenReg) = { [0-9a-fA-F], "V", "D" }
+
+first(Add) = { "V", "I" }
+
+first(Draw) = "V"
+
+follow(Prog) = { $ }
+
+follow(Inst) = { "mc", "clr", "retn", "jmp", "call", "skipeq", "skipne", "mov", "add",
+            "or", "and", "xor", "addc", "sub", "rshift", "subr", "lshift", "jmpv",
+            "rndmov", "draw", "input", "sprite", "bcd", "store", "load", $ }
+
+follow(LitHex3) = follow(Inst)
+
+follow(LitHex2) = follow(Inst)
+
+follow(SkipArgs) = follow(Inst)
+
+follow(Mov) = follow(Inst)
+
+follow(Add) = follow(Inst)
+
+follow(RegPair) = follow(Inst)
+
+follow(Draw) = follow(Inst)
+
+follow(RegLit) = follow(Inst)
+
+    follow(GenReg) = "," u follow(Inst)
+
+follow(MovGenReg) = follow(Inst)
