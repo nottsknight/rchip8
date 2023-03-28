@@ -10,7 +10,7 @@ timers are accessed like registers using the names `S` and `D` respectively.
 ## Instructions
 
 | opcode | instruction         |
-|========|=====================|
+|--------|---------------------|
 | 0nnn   | `mc      nnn      ` |
 | 00e0   | `clr              ` |
 | 00ee   | `retn             ` |
