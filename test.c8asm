@@ -1,0 +1,6 @@
+call 204
+jmp 206
+retn
+clr
+draw V1, V2, f
+jmp 2a0

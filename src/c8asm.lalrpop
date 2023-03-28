@@ -1,2 +1,61 @@
 grammar;
 
+OneDigit: u8 = r"[0-9a-fA-F]" => u8::from_str_radix(<>, 16).unwrap();
+
+TwoDigits: u8 = r"[0-9a-fA-F]{2}" => u8::from_str_radix(<>, 16).unwrap();
+
+ThreeDigits: u16 = r"[0-9a-fA-F]{3}" => u16::from_str_radix(<>, 16).unwrap();
+
+FourDigits: u16 = r"[0-9a-fA-F]{4}" => u16::from_str_radix(<>, 16).unwrap();
+
+GenReg: u8 = r"V[0-9a-fA-F]" => u8::from_str_radix(&<>[1..], 16).unwrap();
+
+Instruction: u16 = {
+    "mc" <ThreeDigits> => 0x0000 | <>,
+    "clr" => 0x00e0,
+    "retn" => 0x00ee,
+    "jmp" <ThreeDigits> => 0x1000 | <>,
+    "call" <ThreeDigits> => 0x2000 | <>,
+    "skipeq" <x:GenReg> "," <nn:TwoDigits> => 0x3000 | (x as u16) << 8 | nn as u16,
+    "skipne" <x:GenReg> "," <nn:TwoDigits> => 0x4000 | (x as u16) << 8 | nn as u16,
+    "skipeq" <x:GenReg> "," <y:GenReg> => 0x5000 | (x as u16) << 8 | (y as u16) << 4,
+    "mov" <x:GenReg> "," <nn:TwoDigits> => 0x6000 | (x as u16) << 8 | nn as u16,
+    "add" <x:GenReg> "," <nn:TwoDigits> => 0x7000 | (x as u16) << 8 | nn as u16,
+    "mov" <x:GenReg> "," <y:GenReg> => 0x8000 | (x as u16) << 8 | (y as u16) << 4,
+    "or" <x:GenReg> "," <y:GenReg> => 0x8000 | (x as u16) << 8 | (y as u16) << 4 | 1,
+    "and" <x:GenReg> "," <y:GenReg> => 0x8000 | (x as u16) << 8 | (y as u16) << 4 | 2,
+    "xor" <x:GenReg> "," <y:GenReg> => 0x8000 | (x as u16) << 8 | (y as u16) << 4 | 3,
+    "add" <x:GenReg> "," <y:GenReg> => 0x8000 | (x as u16) << 8 | (y as u16) << 4 | 4,
+    "sub" <x:GenReg> "," <y:GenReg> => 0x8000 | (x as u16) << 8 | (y as u16) << 4 | 5,
+    "rshift" <x:GenReg> "," <y:GenReg> => 0x8000 | (x as u16) << 8 | (y as u16) << 4 | 6,
+    "subr" <x:GenReg> "," <y:GenReg> => 0x8000 | (x as u16) << 8 | (y as u16) << 4 | 7,
+    "lshift" <x:GenReg> "," <y:GenReg> => 0x8000 | (x as u16) << 8 | (y as u16) << 4 | 0xe,
+    "skipne" <x:GenReg> "," <y:GenReg> => 0x9000 | (x as u16) << 8 | (y as u16) << 4,
+    "mov" "I" "," <nnn:ThreeDigits> => 0xa000 | nnn,
+    "jmpv" <nnn:ThreeDigits> => 0xb000 | nnn,
+    "rand" <x:GenReg> "," <nn:TwoDigits> => 0xc000 | (x as u16) << 8 | nn as u16,
+    "draw" <x:GenReg> "," <y:GenReg> "," <n:OneDigit> =>
+        0xd000 | (x as u16) << 8 | (y as u16) << 4 | n as u16,
+    "skipkeq" <x:GenReg> => 0xe09e | (x as u16) << 8,
+    "skipkne" <x:GenReg> => 0xe0a1 | (x as u16) << 8,
+    "mov" <x:GenReg> "," "D" => 0xf007 | (x as u16) << 8,
+    "input" <x:GenReg> => 0xf00a | (x as u16) << 8,
+    "mov" "D" "," <x:GenReg> => 0xf015 | (x as u16) << 8,
+    "mov" "S" "," <x:GenReg> => 0xf018 | (x as u16) << 8,
+    "add" "I" "," <x:GenReg> => 0xf01e | (x as u16) << 8,
+    "sprite" <x:GenReg> => 0xf029 | (x as u16) << 8,
+    "bcd" <x:GenReg> => 0xf033 | (x as u16) << 8,
+    "store" <x:GenReg> => 0xf055 | (x as u16) << 8,
+    "load" <x:GenReg> => 0xf065 | (x as u16) << 8,
+}
+
+Data: u16 = {
+    ".data" <FourDigits> => <>,
+    ".data" <n:TwoDigits> <m:TwoDigits> => {
+        (n as u16) << 8 | m as u16
+    }
+}
+
+ProgLine: u16 = { Instruction, Data };
+
+pub Program: Vec<u16> = ProgLine+;
