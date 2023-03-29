@@ -67,7 +67,7 @@ fn run_disassemble(rom_file: &str, addresses: bool) {
     if let Ok(mut f) = File::open(rom_file) {
         let mut buf = [0u8; 2];
         let mut pc = 0x200;
-        while let Ok(2) = f.read(&mut buf[..]) {
+        while let Ok(2) = f.read(&mut buf) {
             let code = (buf[0] as u16) << 8 | (buf[1] as u16);
             match Chip8Machine::decode(code) {
                 Ok(inst) => {
@@ -77,7 +77,7 @@ fn run_disassemble(rom_file: &str, addresses: bool) {
                         println!("{}", disassemble(None, inst));
                     }
                 }
-                Err(_) => println!("NOP"),
+                Err(_) => println!(".data {:04X}", code),
             }
             pc += 2;
         }
@@ -215,4 +215,3 @@ fn start_vm(mode: Chip8Mode, rom_file: &str) {
         thread::sleep(freq);
     }
 }
-
