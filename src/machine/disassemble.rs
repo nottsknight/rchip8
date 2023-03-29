@@ -3,18 +3,22 @@ use crate::machine::insts::Chip8Inst;
 pub fn disassemble(pc: Option<usize>, inst: Chip8Inst) -> String {
     let s = match inst {
         Chip8Inst::ClearScreen => "clr".to_string(),
-        Chip8Inst::Display(x, y, height) => format!("draw    {:X}h, {:X}h, {:X}h", x, y, height),
-        Chip8Inst::MachineInst(nnn) => format!("mc      {:X}h", nnn),
-        Chip8Inst::Jump(nnn) => format!("jmp     {:X}h", nnn),
-        Chip8Inst::JumpReg(nnn) => format!("jmpv    {:X}h", nnn),
-        Chip8Inst::SubCall(nnn) => format!("call    {:X}h", nnn),
+        Chip8Inst::Display(x, y, height) => format!("draw    V{:X}, V{:X}, {:X}", x, y, height),
+        Chip8Inst::MachineInst(nnn) => {
+            let hi = (nnn & 0xff00) >> 8;
+            let lo = nnn & 0xff;
+            format!(".data   {:02X} {:02X}", hi, lo)
+        }
+        Chip8Inst::Jump(nnn) => format!("jmp     {:03X}", nnn),
+        Chip8Inst::JumpReg(nnn) => format!("jmpv    {:03X}", nnn),
+        Chip8Inst::SubCall(nnn) => format!("call    {:03X}", nnn),
         Chip8Inst::SubReturn => "retn".to_string(),
-        Chip8Inst::SkipEqConst(x, nn) => format!("skipeq  V{:X}, {:X}h", x, nn),
-        Chip8Inst::SkipNeqConst(x, nn) => format!("skipne  V{:X}, {:X}h", x, nn),
+        Chip8Inst::SkipEqConst(x, nn) => format!("skipeq  V{:X}, {:02X}", x, nn),
+        Chip8Inst::SkipNeqConst(x, nn) => format!("skipne  V{:X}, {:02X}", x, nn),
         Chip8Inst::SkipEqReg(x, y) => format!("skipeq  V{:X}, V{:X}", x, y),
         Chip8Inst::SkipNeqReg(x, y) => format!("skipne  V{:X}, V{:X}", x, y),
-        Chip8Inst::RegSet(x, nn) => format!("mov     V{:X}, {:X}h", x, nn),
-        Chip8Inst::RegAddNoCarry(x, nn) => format!("add     V{:X}, {:X}h", x, nn),
+        Chip8Inst::RegSet(x, nn) => format!("mov     V{:X}, {:02X}", x, nn),
+        Chip8Inst::RegAddNoCarry(x, nn) => format!("add     V{:X}, {:02X}", x, nn),
         Chip8Inst::Assign(x, y) => format!("mov     V{:X}, V{:X}", x, y),
         Chip8Inst::BinOr(x, y) => format!("or      V{:X}, V{:X}", x, y),
         Chip8Inst::BinAnd(x, y) => format!("and     V{:X}, V{:X}", x, y),
@@ -27,9 +31,9 @@ pub fn disassemble(pc: Option<usize>, inst: Chip8Inst) -> String {
         Chip8Inst::ReadDelay(x) => format!("mov     V{:X}, D", x),
         Chip8Inst::SetDelay(x) => format!("mov     D, V{:X}", x),
         Chip8Inst::SetSound(x) => format!("mov     S, V{:X}", x),
-        Chip8Inst::SetIndex(nnn) => format!("mov     I, {:X}h", nnn),
-        Chip8Inst::AddIndex(nnn) => format!("add     I, {:X}h", nnn),
-        Chip8Inst::Random(x, nn) => format!("rand    V{:X}, {:X}h", x, nn),
+        Chip8Inst::SetIndex(nnn) => format!("mov     I, {:03X}", nnn),
+        Chip8Inst::AddIndex(nnn) => format!("add     I, {:03X}", nnn),
+        Chip8Inst::Random(x, nn) => format!("rand    V{:X}, {:02X}", x, nn),
         Chip8Inst::SkipEqKey(x) => format!("skipeqk V{:X}", x),
         Chip8Inst::SkipNeqKey(x) => format!("skipnek V{:X}", x),
         Chip8Inst::GetKey(x) => format!("read    V{:X}", x),

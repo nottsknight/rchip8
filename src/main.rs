@@ -77,7 +77,7 @@ fn run_disassemble(rom_file: &str, addresses: bool) {
                         println!("{}", disassemble(None, inst));
                     }
                 }
-                Err(_) => println!(".data {:04X}", code),
+                Err(_) => println!(".data   {:02X} {:02X}", buf[0], buf[1]),
             }
             pc += 2;
         }
