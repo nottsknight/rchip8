@@ -1,3 +1,5 @@
+use rchip8::compiler::ProgElement;
+
 grammar;
 
 OneDigit: u8 = r"[0-9a-fA-F]" => u8::from_str_radix(<>, 16).unwrap();
@@ -9,6 +11,8 @@ ThreeDigits: u16 = r"[0-9a-fA-F]{3}" => u16::from_str_radix(<>, 16).unwrap();
 FourDigits: u16 = r"[0-9a-fA-F]{4}" => u16::from_str_radix(<>, 16).unwrap();
 
 GenReg: u8 = r"V[0-9a-fA-F]" => u8::from_str_radix(&<>[1..], 16).unwrap();
+
+Label: String = r"\.[a-z][a-zA-Z0-9_]*" => String::from(<>);
 
 Instruction: u16 = {
     "mc" <ThreeDigits> => 0x0000 | <>,
@@ -49,6 +53,12 @@ Instruction: u16 = {
     "load" <x:GenReg> => 0xf065 | (x as u16) << 8,
 }
 
+JumpInstruction: ProgElement = {
+    "jmp" <Label> => ProgElement::Jump(<>),
+    "call" <Label> =>ProgElement::Call(<>),
+    "jmpv" <Label> => ProgElement::JumpV(<>),
+};
+
 Data: u16 = {
     ".data" <FourDigits> => <>,
     ".data" <n:TwoDigits> <m:TwoDigits> => {
@@ -56,6 +66,11 @@ Data: u16 = {
     }
 }
 
-ProgLine: u16 = { Instruction, Data };
+ProgLine: ProgElement = { 
+    Instruction => ProgElement::Instr(<>), 
+    JumpInstruction,
+    Label Instruction => ProgElement::LabelInstr(<>),
+    Data => ProgElement::Data(<>),
+};
 
-pub Program: Vec<u16> = ProgLine+;
+pub Program: Vec<ProgElement> = ProgLine+;

@@ -1,6 +1,7 @@
 use clap::Parser;
 use lalrpop_util::lexer::Token;
 use lalrpop_util::{lalrpop_mod, ParseError};
+use rchip8::compiler::process_prog;
 use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Write};
 
@@ -17,7 +18,8 @@ fn load_file(filename: &str) -> std::io::Result<String> {
 
 fn parse(input: &str) -> Result<Vec<u16>, ParseError<usize, Token, &str>> {
     let parser = ProgramParser::new();
-    parser.parse(input)
+    let code = parser.parse(input)?;
+    Ok(process_prog(code))
 }
 
 fn emit_code(filename: &str, code: Vec<u16>) -> std::io::Result<()> {

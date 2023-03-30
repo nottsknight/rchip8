@@ -1,6 +1,5 @@
-call 204
-jmp 206
-retn
-clr
-draw V1, V2, f
-jmp 2a0
+      call .loc1
+      jmp .loc2
+.loc1 retn
+.loc2 clr
+      draw V1, V2, f
