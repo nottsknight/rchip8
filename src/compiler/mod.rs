@@ -14,11 +14,49 @@ fn label_addresses(elems: &Vec<ProgElement>) -> HashMap<&String, u16> {
     let mut pc = 0x200;
     for elem in elems {
         if let ProgElement::LabelInstr(lbl, _) = elem {
+            if addrs.contains_key(lbl) {
+                panic!("Duplicate label: {}", lbl);
+            }
             addrs.insert(lbl, pc);
         }
         pc += 2;
     }
     addrs
+}
+
+#[cfg(test)]
+mod label_addresses_tests {
+    use super::*;
+    use rstest::*;
+
+    #[rstest]
+    fn test_no_duplicate_labels() {
+        let elems = vec![
+            ProgElement::Instr(0),
+            ProgElement::LabelInstr(String::from("l1"), 0),
+            ProgElement::Data(2),
+            ProgElement::LabelInstr(String::from("l2"), 0),
+            ProgElement::Jump(String::from("l3")),
+        ];
+
+        let lbls = label_addresses(&elems);
+        assert_eq!(2, lbls.len());
+        let k1 = String::from("l1");
+        assert!(lbls.contains_key(&k1));
+        let k2 = String::from("l2");
+        assert!(lbls.contains_key(&k2));
+    }
+
+    #[rstest]
+    #[should_panic]
+    fn test_duplicate_labels() {
+        let elems = vec![
+            ProgElement::LabelInstr(String::from("l1"), 0),
+            ProgElement::LabelInstr(String::from("l1"), 0),
+        ];
+
+        label_addresses(&elems);
+    }
 }
 
 pub fn process_prog(prog: Vec<ProgElement>) -> Vec<u16> {
