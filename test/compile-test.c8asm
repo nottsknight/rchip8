@@ -1,5 +1,8 @@
-      call .loc1
-      jmp .loc2
-.loc1 retn
-.loc2 clr
-      draw V1, V2, f
+         call    .loc1
+         jmp     .loc2
+.loc1    mov     V3, 00
+         sprite  V3
+         retn
+.loc2    clr
+.loc3    draw    V1, V2, f
+         jmp     .loc3

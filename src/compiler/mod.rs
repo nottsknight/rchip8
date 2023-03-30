@@ -32,21 +32,21 @@ pub fn process_prog(prog: Vec<ProgElement>) -> Vec<u16> {
                 if let Some(addr) = lbls.get(&lbl) {
                     ProgElement::Instr(0x1000 | addr)
                 } else {
-                    panic!("Used invalid label");
+                    panic!("Jump to undefined label: {}", lbl);
                 }
             }
             ProgElement::Call(lbl) => {
                 if let Some(addr) = lbls.get(&lbl) {
                     ProgElement::Instr(0x2000 | addr)
                 } else {
-                    panic!("Used invalid label");
+                    panic!("Call invalid label: {}", lbl);
                 }
             }
             ProgElement::JumpV(lbl) => {
                 if let Some(addr) = lbls.get(&lbl) {
                     ProgElement::Instr(0xb000 | addr)
                 } else {
-                    panic!("Used invalid label");
+                    panic!("Jump to invalid label: {}", lbl);
                 }
             }
         })
