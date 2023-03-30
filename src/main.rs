@@ -77,7 +77,13 @@ fn run_disassemble(rom_file: &str, addresses: bool) {
                         println!("{}", disassemble(None, inst));
                     }
                 }
-                Err(_) => println!(".data   {:02X} {:02X}", buf[0], buf[1]),
+                Err(_) => {
+                    if addresses {
+                        println!("{:#06x} .data   {:02X} {:02X}", pc, buf[0], buf[1]);
+                    } else {
+                        println!(".data   {:02X} {:02X}", buf[0], buf[1]);
+                    }
+                }
             }
             pc += 2;
         }

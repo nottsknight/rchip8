@@ -25,9 +25,9 @@ pub fn process_prog(prog: Vec<ProgElement>) -> Vec<u16> {
     let lbls = label_addresses(&prog);
     prog.iter()
         .map(|elem| match elem {
-            ProgElement::Instr(x) => ProgElement::Instr(x.clone()),
-            ProgElement::LabelInstr(_, x) => ProgElement::Instr(x.clone()),
-            ProgElement::Data(x) => ProgElement::Data(x.clone()),
+            ProgElement::Instr(x) => ProgElement::Instr(*x),
+            ProgElement::LabelInstr(_, x) => ProgElement::Instr(*x),
+            ProgElement::Data(x) => ProgElement::Data(*x),
             ProgElement::Jump(lbl) => {
                 if let Some(addr) = lbls.get(&lbl) {
                     ProgElement::Instr(0x1000 | addr)
