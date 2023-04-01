@@ -16,13 +16,13 @@ fn load_file(filename: &str) -> std::io::Result<String> {
     Ok(buf)
 }
 
-fn parse(input: &str) -> Result<Vec<u16>, ParseError<usize, Token, &str>> {
+fn parse(input: &str) -> Result<Vec<u8>, ParseError<usize, Token, &str>> {
     let parser = ProgramParser::new();
     let code = parser.parse(input)?;
     Ok(process_prog(code))
 }
 
-fn emit_code(filename: &str, code: Vec<u16>) -> std::io::Result<()> {
+fn emit_code(filename: &str, code: Vec<u8>) -> std::io::Result<()> {
     let f = OpenOptions::new()
         .write(true)
         .create(true)

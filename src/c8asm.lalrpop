@@ -59,15 +59,16 @@ JumpInstruction: ProgElement = {
     "jmpv" <Label> => ProgElement::JumpV(<>),
 };
 
-Data: u16 = {
-    ".data" <FourDigits> => <>,
-    ".data" <n:TwoDigits> <m:TwoDigits> => {
-        (n as u16) << 8 | m as u16
+Data: ProgElement = {
+    ".word" <TwoDigits> => ProgElement::Word(<>),
+    ".dword" <FourDigits> => ProgElement::DWord(<>),
+    ".dword" <n:TwoDigits> <m:TwoDigits> => {
+        ProgElement::DWord((n as u16) << 8 | m as u16)
     }
 }
 
 Instr: ProgElement = {
-    Data => ProgElement::Data(<>),
+    Data,
     Instruction => ProgElement::Instr(<>),
     JumpInstruction,
 };
