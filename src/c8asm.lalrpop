@@ -66,11 +66,15 @@ Data: u16 = {
     }
 }
 
-ProgLine: ProgElement = { 
-    Instruction => ProgElement::Instr(<>), 
-    JumpInstruction,
-    Label Instruction => ProgElement::LabelInstr(<>),
+Instr: ProgElement = {
     Data => ProgElement::Data(<>),
+    Instruction => ProgElement::Instr(<>),
+    JumpInstruction,
+};
+
+ProgLine: ProgElement = { 
+   Instr,
+   <lbl:Label> <inst:Instr> => ProgElement::LabelInstr(lbl, Box::new(inst)),
 };
 
 pub Program: Vec<ProgElement> = ProgLine+;

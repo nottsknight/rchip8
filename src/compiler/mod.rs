@@ -1,12 +1,43 @@
 use std::collections::HashMap;
 
 pub enum ProgElement {
+    Data(u16),
     Instr(u16),
-    LabelInstr(String, u16),
     Jump(String),
     Call(String),
     JumpV(String),
-    Data(u16),
+    LabelInstr(String, Box<ProgElement>),
+}
+
+impl ProgElement {
+    fn into_u16(&self, locs: &HashMap<&String, u16>) -> u16 {
+        match self {
+            ProgElement::LabelInstr(_, elem) => elem.into_u16(locs),
+            ProgElement::Instr(op) => *op,
+            ProgElement::Data(data) => *data,
+            ProgElement::Jump(loc) => {
+                if let Some(addr) = locs.get(loc) {
+                    0x1000 | addr
+                } else {
+                    panic!("Jump to undefined location: {}", loc);
+                }
+            }
+            ProgElement::Call(loc) => {
+                if let Some(addr) = locs.get(loc) {
+                    0x2000 | addr
+                } else {
+                    panic!("Call to undefined location: {}", loc);
+                }
+            }
+            ProgElement::JumpV(loc) => {
+                if let Some(addr) = locs.get(loc) {
+                    0xb000 | addr
+                } else {
+                    panic!("Jump to undefined location: {}", loc);
+                }
+            }
+        }
+    }
 }
 
 fn label_addresses(elems: &Vec<ProgElement>) -> HashMap<&String, u16> {
@@ -33,9 +64,9 @@ mod label_addresses_tests {
     fn test_no_duplicate_labels() {
         let elems = vec![
             ProgElement::Instr(0),
-            ProgElement::LabelInstr(String::from("l1"), 0),
+            ProgElement::LabelInstr(String::from("l1"), Box::new(ProgElement::Instr(0))),
             ProgElement::Data(2),
-            ProgElement::LabelInstr(String::from("l2"), 0),
+            ProgElement::LabelInstr(String::from("l2"), Box::new(ProgElement::Instr(0))),
             ProgElement::Jump(String::from("l3")),
         ];
 
@@ -51,8 +82,8 @@ mod label_addresses_tests {
     #[should_panic]
     fn test_duplicate_labels() {
         let elems = vec![
-            ProgElement::LabelInstr(String::from("l1"), 0),
-            ProgElement::LabelInstr(String::from("l1"), 0),
+            ProgElement::LabelInstr(String::from("l1"), Box::new(ProgElement::Instr(0))),
+            ProgElement::LabelInstr(String::from("l1"), Box::new(ProgElement::Instr(0))),
         ];
 
         label_addresses(&elems);
@@ -61,37 +92,5 @@ mod label_addresses_tests {
 
 pub fn process_prog(prog: Vec<ProgElement>) -> Vec<u16> {
     let lbls = label_addresses(&prog);
-    prog.iter()
-        .map(|elem| match elem {
-            ProgElement::Instr(x) => ProgElement::Instr(*x),
-            ProgElement::LabelInstr(_, x) => ProgElement::Instr(*x),
-            ProgElement::Data(x) => ProgElement::Data(*x),
-            ProgElement::Jump(lbl) => {
-                if let Some(addr) = lbls.get(&lbl) {
-                    ProgElement::Instr(0x1000 | addr)
-                } else {
-                    panic!("Jump to undefined label: {}", lbl);
-                }
-            }
-            ProgElement::Call(lbl) => {
-                if let Some(addr) = lbls.get(&lbl) {
-                    ProgElement::Instr(0x2000 | addr)
-                } else {
-                    panic!("Call invalid label: {}", lbl);
-                }
-            }
-            ProgElement::JumpV(lbl) => {
-                if let Some(addr) = lbls.get(&lbl) {
-                    ProgElement::Instr(0xb000 | addr)
-                } else {
-                    panic!("Jump to invalid label: {}", lbl);
-                }
-            }
-        })
-        .map(|elem| match elem {
-            ProgElement::Instr(x) => x,
-            ProgElement::Data(x) => x,
-            _ => 0,
-        })
-        .collect()
+    prog.iter().map(|elem| elem.into_u16(&lbls)).collect()
 }
