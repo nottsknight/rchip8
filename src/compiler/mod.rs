@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 
 pub enum ProgElement {
-    Word(u8),
-    DWord(u16),
+    Data(Vec<u8>),
     Instr(u16),
     Jump(String),
     Call(String),
@@ -10,34 +9,29 @@ pub enum ProgElement {
     LabelInstr(String, Box<ProgElement>),
 }
 
-fn bytes(n: u16) -> (u8, Option<u8>) {
-    (((n & 0xff00) >> 8) as u8, Some((n & 0xff) as u8))
-}
-
 impl ProgElement {
-    fn into_bytes(&self, locs: &HashMap<&String, u16>) -> (u8, Option<u8>) {
+    fn into_bytes(&self, locs: &HashMap<String, u16>) -> Vec<u8> {
         match self {
             ProgElement::LabelInstr(_, elem) => elem.into_bytes(locs),
-            ProgElement::Instr(op) => bytes(*op),
-            ProgElement::Word(data) => (*data, None),
-            ProgElement::DWord(data) => bytes(*data),
+            ProgElement::Instr(op) => Vec::from(op.to_be_bytes()),
+            ProgElement::Data(data) => data.clone(),
             ProgElement::Jump(loc) => {
                 if let Some(addr) = locs.get(loc) {
-                    bytes(0x1000 | addr)
+                    Vec::from((0x1000 | addr).to_be_bytes())
                 } else {
                     panic!("Jump to undefined location: {}", loc);
                 }
             }
             ProgElement::Call(loc) => {
                 if let Some(addr) = locs.get(loc) {
-                    bytes(0x2000 | addr)
+                    Vec::from((0x2000 | addr).to_be_bytes())
                 } else {
                     panic!("Call to undefined location: {}", loc);
                 }
             }
             ProgElement::JumpV(loc) => {
                 if let Some(addr) = locs.get(loc) {
-                    bytes(0xb000 | addr)
+                    Vec::from((0xb000 | addr).to_be_bytes())
                 } else {
                     panic!("Jump to undefined location: {}", loc);
                 }
@@ -46,7 +40,51 @@ impl ProgElement {
     }
 }
 
-fn label_addresses(elems: &Vec<ProgElement>) -> HashMap<&String, u16> {
+#[cfg(test)]
+mod into_bytes_tests {
+    use super::*;
+    use rstest::*;
+
+    #[fixture]
+    fn empty_locs() -> HashMap<String, u16> {
+        HashMap::new()
+    }
+
+    #[rstest]
+    fn test_instr_into_bytes(empty_locs: HashMap<String, u16>) {
+        let inst = ProgElement::Instr(0xa1b2);
+        assert_eq!(vec![0xa1, 0xb2], inst.into_bytes(&empty_locs));
+    }
+
+    #[rstest]
+    fn test_data_into_bytes(empty_locs: HashMap<String, u16>) {
+        let inst = ProgElement::Data(vec![1, 2, 3, 4, 5]);
+        assert_eq!(vec![1, 2, 3, 4, 5], inst.into_bytes(&empty_locs));
+    }
+
+    #[rstest]
+    fn test_jump_into_bytes(mut empty_locs: HashMap<String, u16>) {
+        empty_locs.insert(String::from("test"), 0x123);
+        let inst = ProgElement::Jump(String::from("test"));
+        assert_eq!(vec![0x11, 0x23], inst.into_bytes(&empty_locs));
+    }
+
+    #[rstest]
+    fn test_call_into_bytes(mut empty_locs: HashMap<String, u16>) {
+        empty_locs.insert(String::from("test"), 0xa14);
+        let inst = ProgElement::Call(String::from("test"));
+        assert_eq!(vec![0x2a, 0x14], inst.into_bytes(&empty_locs));
+    }
+
+    #[rstest]
+    fn test_jumpv_into_bytes(mut empty_locs: HashMap<String, u16>) {
+        empty_locs.insert(String::from("test"), 0x33e);
+        let inst = ProgElement::JumpV(String::from("test"));
+        assert_eq!(vec![0xb3, 0x3e], inst.into_bytes(&empty_locs));
+    }
+}
+
+fn label_addresses(elems: &Vec<ProgElement>) -> HashMap<String, u16> {
     let mut addrs = HashMap::new();
     let mut pc = 0x200;
     for elem in elems {
@@ -54,10 +92,10 @@ fn label_addresses(elems: &Vec<ProgElement>) -> HashMap<&String, u16> {
             if addrs.contains_key(lbl) {
                 panic!("Duplicate label: {}", lbl);
             }
-            addrs.insert(lbl, pc);
+            addrs.insert(lbl.clone(), pc as u16);
         }
         match elem {
-            ProgElement::Word(_) => pc += 1,
+            ProgElement::Data(bytes) => pc += bytes.len(),
             _ => pc += 2,
         }
     }
@@ -74,7 +112,7 @@ mod label_addresses_tests {
         let elems = vec![
             ProgElement::Instr(0),
             ProgElement::LabelInstr(String::from("l1"), Box::new(ProgElement::Instr(0))),
-            ProgElement::Word(2),
+            ProgElement::Data(vec![2, 4]),
             ProgElement::LabelInstr(String::from("l2"), Box::new(ProgElement::Instr(0))),
             ProgElement::Jump(String::from("l3")),
         ];
@@ -103,11 +141,8 @@ pub fn process_prog(prog: Vec<ProgElement>) -> Vec<u8> {
     let lbls = label_addresses(&prog);
     let mut bytes = Vec::new();
     for elem in &prog {
-        let (b1, b2opt) = elem.into_bytes(&lbls);
-        bytes.push(b1);
-        if let Some(b2) = b2opt {
-            bytes.push(b2);
-        }
+        let mut elem_bytes = elem.into_bytes(&lbls);
+        bytes.append(&mut elem_bytes);
     }
     bytes
 }

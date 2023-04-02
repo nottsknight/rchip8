@@ -2,17 +2,17 @@ use rchip8::compiler::ProgElement;
 
 grammar;
 
-OneDigit: u8 = r"[0-9a-fA-F]" => u8::from_str_radix(<>, 16).unwrap();
+OneDigit: u8 = r"#[0-9a-fA-F]" => u8::from_str_radix(&<>[1..], 16).unwrap();
 
-TwoDigits: u8 = r"[0-9a-fA-F]{2}" => u8::from_str_radix(<>, 16).unwrap();
+TwoDigits: u8 = r"#[0-9a-fA-F]{2}" => u8::from_str_radix(&<>[1..], 16).unwrap();
 
-ThreeDigits: u16 = r"[0-9a-fA-F]{3}" => u16::from_str_radix(<>, 16).unwrap();
+ThreeDigits: u16 = r"#[0-9a-fA-F]{3}" => u16::from_str_radix(&<>[1..], 16).unwrap();
 
-FourDigits: u16 = r"[0-9a-fA-F]{4}" => u16::from_str_radix(<>, 16).unwrap();
+FourDigits: u16 = r"#[0-9a-fA-F]{4}" => u16::from_str_radix(&<>[1..], 16).unwrap();
 
 GenReg: u8 = r"V[0-9a-fA-F]" => u8::from_str_radix(&<>[1..], 16).unwrap();
 
-Label: String = r"\.[a-z][a-zA-Z0-9_]*" => String::from(<>);
+Label: String = r"\$[a-zA-Z][a-zA-Z0-9_]*" => String::from(<>);
 
 Instruction: u16 = {
     "mc" <ThreeDigits> => 0x0000 | <>,
@@ -22,9 +22,13 @@ Instruction: u16 = {
     "call" <ThreeDigits> => 0x2000 | <>,
     "skipeq" <x:GenReg> "," <nn:TwoDigits> => 0x3000 | (x as u16) << 8 | nn as u16,
     "skipne" <x:GenReg> "," <nn:TwoDigits> => 0x4000 | (x as u16) << 8 | nn as u16,
+    "skipeq" <x:GenReg> "," <nn:OneDigit> => 0x3000 | (x as u16) << 8 | nn as u16,
+    "skipne" <x:GenReg> "," <nn:OneDigit> => 0x4000 | (x as u16) << 8 | nn as u16,
     "skipeq" <x:GenReg> "," <y:GenReg> => 0x5000 | (x as u16) << 8 | (y as u16) << 4,
     "mov" <x:GenReg> "," <nn:TwoDigits> => 0x6000 | (x as u16) << 8 | nn as u16,
     "add" <x:GenReg> "," <nn:TwoDigits> => 0x7000 | (x as u16) << 8 | nn as u16,
+    "mov" <x:GenReg> "," <nn:OneDigit> => 0x6000 | (x as u16) << 8 | nn as u16,
+    "add" <x:GenReg> "," <nn:OneDigit> => 0x7000 | (x as u16) << 8 | nn as u16,
     "mov" <x:GenReg> "," <y:GenReg> => 0x8000 | (x as u16) << 8 | (y as u16) << 4,
     "or" <x:GenReg> "," <y:GenReg> => 0x8000 | (x as u16) << 8 | (y as u16) << 4 | 1,
     "and" <x:GenReg> "," <y:GenReg> => 0x8000 | (x as u16) << 8 | (y as u16) << 4 | 2,
@@ -38,6 +42,7 @@ Instruction: u16 = {
     "mov" "I" "," <nnn:ThreeDigits> => 0xa000 | nnn,
     "jmpv" <nnn:ThreeDigits> => 0xb000 | nnn,
     "rand" <x:GenReg> "," <nn:TwoDigits> => 0xc000 | (x as u16) << 8 | nn as u16,
+    "rand" <x:GenReg> "," <nn:OneDigit> => 0xc000 | (x as u16) << 8 | nn as u16,
     "draw" <x:GenReg> "," <y:GenReg> "," <n:OneDigit> =>
         0xd000 | (x as u16) << 8 | (y as u16) << 4 | n as u16,
     "skipkeq" <x:GenReg> => 0xe09e | (x as u16) << 8,
@@ -53,24 +58,21 @@ Instruction: u16 = {
     "load" <x:GenReg> => 0xf065 | (x as u16) << 8,
 }
 
-JumpInstruction: ProgElement = {
+DataStr: Vec<u8> = <byte_str:r"[0-9a-fA-F]{2}+"> => {
+    let mut bytes = Vec::new();
+    for i in 0..byte_str.len() {
+        let byte_val = u8::from_str_radix(&byte_str[i..i+2], 16).unwrap();
+        bytes.push(byte_val);
+    }
+    bytes
+};
+
+Instr: ProgElement = {
+    "data:" <DataStr> => ProgElement::Data(<>),
+    Instruction => ProgElement::Instr(<>),
     "jmp" <Label> => ProgElement::Jump(<>),
     "call" <Label> =>ProgElement::Call(<>),
     "jmpv" <Label> => ProgElement::JumpV(<>),
-};
-
-Data: ProgElement = {
-    ".word" <TwoDigits> => ProgElement::Word(<>),
-    ".dword" <FourDigits> => ProgElement::DWord(<>),
-    ".dword" <n:TwoDigits> <m:TwoDigits> => {
-        ProgElement::DWord((n as u16) << 8 | m as u16)
-    }
-}
-
-Instr: ProgElement = {
-    Data,
-    Instruction => ProgElement::Instr(<>),
-    JumpInstruction,
 };
 
 ProgLine: ProgElement = { 
