@@ -26,7 +26,7 @@ Literal values are given with a `#` in front, like `#1a`.
 | 8xy1   | `or      Vx, Vy   ` |
 | 8xy2   | `and     Vx, Vy   ` |
 | 8xy3   | `xor     Vx, Vy   ` |
-| 8xy4   | `addc    Vx, Vy   ` |
+| 8xy4   | `add     Vx, Vy   ` |
 | 8xy5   | `sub     Vx, Vy   ` |
 | 8xy6   | `rshift  Vx, Vy   ` |
 | 8xy7   | `subr    Vx, Vy   ` |
@@ -34,7 +34,7 @@ Literal values are given with a `#` in front, like `#1a`.
 | 9xy0   | `skipne  Vx, Vy   ` |
 | annn   | `mov     I, nnn   ` |
 | bnnn   | `jmpv    nnn      ` |
-| cxnn   | `rndmov  Vx, nn   ` |
+| cxnn   | `rand    Vx, nn   ` |
 | dxyn   | `draw    Vx, Vy, n` |
 | ex9e   | `skipkeq Vx       ` |
 | exa1   | `skipkne Vx       ` |
