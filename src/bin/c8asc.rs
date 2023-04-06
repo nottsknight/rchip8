@@ -1,6 +1,18 @@
+// This file is part of rchip8.
+//
+// rchip8 is free software: you can redistribute it and/or modify it under the terms of
+// the GNU General Public License as published by the Free Software Foundation, either
+// version 3 of the License, or (at your option) any later version.
+//
+// rchip8 is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+// without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+// PURPOSE. See the GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along with rchip8.
+// If not, see <https://www.gnu.org/licenses/>.use clap::Parser;
+
 use clap::Parser;
-use lalrpop_util::lexer::Token;
-use lalrpop_util::{lalrpop_mod, ParseError};
+use lalrpop_util::{lalrpop_mod, lexer::Token, ParseError};
 use rchip8::compiler::process_prog;
 use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Write};
@@ -23,10 +35,7 @@ fn parse(input: &str) -> Result<Vec<u8>, ParseError<usize, Token, &str>> {
 }
 
 fn emit_code(filename: &str, code: Vec<u8>) -> std::io::Result<()> {
-    let f = OpenOptions::new()
-        .write(true)
-        .create(true)
-        .open(filename)?;
+    let f = OpenOptions::new().write(true).create(true).open(filename)?;
     let mut w = BufWriter::new(f);
     for c in code {
         let c1 = c.to_be_bytes();

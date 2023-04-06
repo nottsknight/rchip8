@@ -39,7 +39,7 @@ mod add_carry_u8_tests {
     #[case(0x01, 0xef)]
     fn test_add_no_overflow(#[case] n: u8, #[case] m: u8) {
         let (sum, carry) = u8::add_carry(n, m);
-        assert_eq!(n+m, sum);
+        assert_eq!(n + m, sum);
         assert!(!carry);
     }
 
