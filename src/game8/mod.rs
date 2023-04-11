@@ -1,44 +1,35 @@
 pub mod ast;
-use ast::{Expression, Program, Statement};
+use ast::{FuncDefinition, Program, Statement};
+use std::collections::HashSet;
 
-use self::ast::FuncDefinition;
-
-fn is_builtin(name: &str) -> bool {
-    match name {
-        "read_delay" | "set_delay" | "set_sound" | "input" => true,
-        _ => false,
+pub fn collect_func_names(Program(fs, _): &Program) -> HashSet<String> {
+    let mut names = HashSet::new();
+    for FuncDefinition(name, _, _) in fs {
+        names.insert(name.clone());
     }
+    names
 }
 
-fn is_invalid_func(name: &str, def_names: &Vec<String>) -> bool {
-    is_builtin(name) || !def_names.contains(&String::from(name))
-}
+pub fn collect_var_names(Program(fs, stmts): &Program) -> HashSet<String> {
+    let mut vars = HashSet::new();
 
-fn check_builtins(Program(defs, stmts): Program) -> bool {
-    let mut func_names = Vec::new();
-    for FuncDefinition(name, _, _) in defs {
-        if is_builtin(&name) {
-            return false;
+    for FuncDefinition(name, params, body) in fs {
+        for p in params {
+            vars.insert(format!("{}__{}", name, p));
         }
-        func_names.push(name.clone());
+
+        for s in body {
+            if let Statement::Assign(v, _) = s.as_ref() {
+                vars.insert(format!("{}__{}", name, v));
+            }
+        }
     }
 
     for s in stmts {
-        match *s {
-            Statement::Assign(_, e) => {
-                if let Expression::FuncCallExpr(name, _) = *e {
-                    if is_invalid_func(&name, &func_names) {
-                        return false;
-                    }
-                }
-            }
-            Statement::FuncCallStmt(name, _) => {
-                if is_invalid_func(&name, &func_names) {
-                    return false;
-                }
-            }
-            _ => (),
+        if let Statement::Assign(v, _) = s.as_ref() {
+            vars.insert(v.clone());
         }
     }
-    true
+
+    vars
 }
