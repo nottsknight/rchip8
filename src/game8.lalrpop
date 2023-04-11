@@ -1,0 +1,68 @@
+use rchip8::game8::ast::*;
+use std::str::FromStr;
+
+grammar;
+
+Ident: String = r"[a-zA-Z][a-zA-Z0-9_]*" => String::from(<>);
+
+CommaList<T>: Vec<T> = {
+    <mut v:(<T> ",")*> <e:T?> => match e {
+        None => v,
+        Some(e) => {
+            v.push(e);
+            v
+        }
+    }
+}
+
+Num: u16 = {
+    r"[0-9]+" => u16::from_str(<>).unwrap(),
+    r"0x[0-9a-fA-F]+" => u16::from_str_radix(&<>[2..], 16).unwrap(),
+};
+
+Term: Box<Expression> = {
+    Num => Box::new(Expression::Number(<>)),
+    Ident => Box::new(Expression::Variable(<>)),
+    <Ident> "(" <CommaList<Expr>> ")" => Box::new(Expression::FuncCallExpr(<>)),
+    "(" <Expr> ")" => <>,
+};
+
+MulExpr: Box<Expression> = {
+    <x:MulExpr> "*" <y:Term> => Box::new(Expression::BinOp(BinOperator::MUL, x, y)),
+    <x:MulExpr> "/" <y:Term> => Box::new(Expression::BinOp(BinOperator::DIV, x, y)),
+    Term,
+};
+
+AddExpr: Box<Expression> = {
+    <x:AddExpr> "+" <y:MulExpr> => Box::new(Expression::BinOp(BinOperator::ADD, x, y)),  
+    <x:AddExpr> "-" <y:MulExpr> => Box::new(Expression::BinOp(BinOperator::SUB, x, y)),  
+    MulExpr,
+};
+
+CmpExpr: Box<Expression> = {
+    <x:CmpExpr> "==" <y:AddExpr> => Box::new(Expression::BinOp(BinOperator::EQL, x, y)),
+    <x:CmpExpr> "!=" <y:AddExpr> => Box::new(Expression::BinOp(BinOperator::NEQ, x, y)),
+    <x:CmpExpr> "<=" <y:AddExpr> => Box::new(Expression::BinOp(BinOperator::LTE, x, y)),
+    <x:CmpExpr> "<" <y:AddExpr> => Box::new(Expression::BinOp(BinOperator::LT, x, y)),
+    <x:CmpExpr> ">=" <y:AddExpr> => Box::new(Expression::BinOp(BinOperator::GTE, x, y)),
+    <x:CmpExpr> ">" <y:AddExpr> => Box::new(Expression::BinOp(BinOperator::GT, x, y)),
+    AddExpr
+}
+
+Expr: Box<Expression> = CmpExpr;
+
+Stmt: Box<Statement> = {
+    "if" <Expr> "then" <Stmt+> "endif" => Box::new(Statement::IfThen(<>)),
+    "if" <Expr> "then" <Stmt+> "else" <CommaList<Stmt>> "endif" => 
+        Box::new(Statement::IfElse(<>)),
+    "while" <Expr> "do" <Stmt+> "endwhile" => Box::new(Statement::While(<>)),
+    <Ident> "(" <CommaList<Ident>> ")" ";" => Box::new(Statement::FuncCallStmt(<>)), 
+    "let" <Ident> "=" <Expr> ";" => Box::new(Statement::Assign(<>)),
+    "return" <Expr> ";" => Box::new(Statement::Return(<>)),
+}
+
+FuncDef: FuncDefinition = {
+    "def" <Ident> "(" <CommaList<Ident>> ")" "do" <Stmt+> "enddef" => FuncDefinition(<>),
+};
+
+pub Prog: Program = FuncDef* Stmt+ => Program(<>);

@@ -73,24 +73,26 @@ Instruction: u16 = {
 
 DataStr: Vec<u8> = <byte_str:r"[0-9a-fA-F]{2}+"> => {
     let mut bytes = Vec::new();
-    for i in 0..byte_str.len() {
+    let mut i = 0;
+    while i < byte_str.len() {
         let byte_val = u8::from_str_radix(&byte_str[i..i+2], 16).unwrap();
         bytes.push(byte_val);
+        i += 2;
     }
     bytes
 };
 
 Instr: ProgElement = {
-    "data:" <DataStr> => ProgElement::Data(<>),
-    Instruction => ProgElement::Instr(<>),
     "jmp" <Label> => ProgElement::Jump(<>),
     "call" <Label> =>ProgElement::Call(<>),
     "jmpv" <Label> => ProgElement::JumpV(<>),
+    Instruction => ProgElement::Instr(<>),
 };
 
 ProgLine: ProgElement = { 
-   Instr,
-   <lbl:Label> <inst:Instr> => ProgElement::LabelInstr(lbl, Box::new(inst)),
+    Instr,
+    <lbl:Label> <inst:Instr> => ProgElement::LabelInstr(lbl, Box::new(inst)),
+    "data:" <DataStr> => ProgElement::Data(<>),
 };
 
 pub Program: Vec<ProgElement> = ProgLine+;

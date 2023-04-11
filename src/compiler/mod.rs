@@ -153,7 +153,7 @@ mod label_addresses_tests {
 pub fn process_prog(prog: Vec<ProgElement>) -> Vec<u8> {
     let lbls = label_addresses(&prog);
     let mut bytes = Vec::new();
-    for elem in &prog {
+    for elem in prog {
         let mut elem_bytes = elem.into_bytes(&lbls);
         bytes.append(&mut elem_bytes);
     }
