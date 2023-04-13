@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 #[derive(Debug)]
 pub enum BinOperator {
     ADD,
@@ -16,22 +18,22 @@ pub enum BinOperator {
 pub enum Expression {
     Number(u16),
     Variable(String),
-    BinOp(BinOperator, Box<Expression>, Box<Expression>),
-    FuncCallExpr(String, Vec<Box<Expression>>),
+    BinOp(BinOperator, Rc<Expression>, Rc<Expression>),
+    FuncCallExpr(String, Vec<Rc<Expression>>),
 }
 
 #[derive(Debug)]
 pub enum Statement {
-    Assign(String, Box<Expression>),
-    IfThen(Box<Expression>, Vec<Box<Statement>>),
-    IfElse(Box<Expression>, Vec<Box<Statement>>, Vec<Box<Statement>>),
-    While(Box<Expression>, Vec<Box<Statement>>),
+    Assign(String, Rc<Expression>),
+    IfThen(Rc<Expression>, Vec<Rc<Statement>>),
+    IfElse(Rc<Expression>, Vec<Rc<Statement>>, Vec<Rc<Statement>>),
+    While(Rc<Expression>, Vec<Rc<Statement>>),
     FuncCallStmt(String, Vec<String>),
-    Return(Box<Expression>),
+    Return(Rc<Expression>),
 }
 
 #[derive(Debug)]
-pub struct FuncDefinition(pub String, pub Vec<String>, pub Vec<Box<Statement>>);
+pub struct FuncDefinition(pub String, pub Vec<String>, pub Vec<Rc<Statement>>);
 
 #[derive(Debug)]
-pub struct Program(pub Vec<FuncDefinition>, pub Vec<Box<Statement>>);
+pub struct Program(pub Vec<FuncDefinition>, pub Vec<Rc<Statement>>);

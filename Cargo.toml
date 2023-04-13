@@ -15,6 +15,7 @@ simple_logger = { version = "~4.0.0", features = [
 ] }
 lalrpop-util = { version = "~0.19", features = ["lexer"] }
 regex = "~1.7"
+petgraph = "~0.6"
 
 [build-dependencies]
 lalrpop = "~0.19"

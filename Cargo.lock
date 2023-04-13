@@ -643,6 +643,7 @@ dependencies = [
  "lalrpop",
  "lalrpop-util",
  "log",
+ "petgraph",
  "rand",
  "regex",
  "rstest",

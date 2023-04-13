@@ -1,5 +1,6 @@
 use rchip8::game8::ast::*;
 use std::str::FromStr;
+use std::rc::Rc;
 
 grammar;
 
@@ -20,45 +21,45 @@ Num: u16 = {
     r"0x[0-9a-fA-F]+" => u16::from_str_radix(&<>[2..], 16).unwrap(),
 };
 
-Term: Box<Expression> = {
-    Num => Box::new(Expression::Number(<>)),
-    Ident => Box::new(Expression::Variable(<>)),
-    <Ident> "(" <CommaList<Expr>> ")" => Box::new(Expression::FuncCallExpr(<>)),
+Term: Rc<Expression> = {
+    Num => Rc::new(Expression::Number(<>)),
+    Ident => Rc::new(Expression::Variable(<>)),
+    <Ident> "(" <CommaList<Expr>> ")" => Rc::new(Expression::FuncCallExpr(<>)),
     "(" <Expr> ")" => <>,
 };
 
-MulExpr: Box<Expression> = {
-    <x:MulExpr> "*" <y:Term> => Box::new(Expression::BinOp(BinOperator::MUL, x, y)),
-    <x:MulExpr> "/" <y:Term> => Box::new(Expression::BinOp(BinOperator::DIV, x, y)),
+MulExpr: Rc<Expression> = {
+    <x:MulExpr> "*" <y:Term> => Rc::new(Expression::BinOp(BinOperator::MUL, x, y)),
+    <x:MulExpr> "/" <y:Term> => Rc::new(Expression::BinOp(BinOperator::DIV, x, y)),
     Term,
 };
 
-AddExpr: Box<Expression> = {
-    <x:AddExpr> "+" <y:MulExpr> => Box::new(Expression::BinOp(BinOperator::ADD, x, y)),  
-    <x:AddExpr> "-" <y:MulExpr> => Box::new(Expression::BinOp(BinOperator::SUB, x, y)),  
+AddExpr: Rc<Expression> = {
+    <x:AddExpr> "+" <y:MulExpr> => Rc::new(Expression::BinOp(BinOperator::ADD, x, y)),  
+    <x:AddExpr> "-" <y:MulExpr> => Rc::new(Expression::BinOp(BinOperator::SUB, x, y)),  
     MulExpr,
 };
 
-CmpExpr: Box<Expression> = {
-    <x:CmpExpr> "==" <y:AddExpr> => Box::new(Expression::BinOp(BinOperator::EQL, x, y)),
-    <x:CmpExpr> "!=" <y:AddExpr> => Box::new(Expression::BinOp(BinOperator::NEQ, x, y)),
-    <x:CmpExpr> "<=" <y:AddExpr> => Box::new(Expression::BinOp(BinOperator::LTE, x, y)),
-    <x:CmpExpr> "<" <y:AddExpr> => Box::new(Expression::BinOp(BinOperator::LT, x, y)),
-    <x:CmpExpr> ">=" <y:AddExpr> => Box::new(Expression::BinOp(BinOperator::GTE, x, y)),
-    <x:CmpExpr> ">" <y:AddExpr> => Box::new(Expression::BinOp(BinOperator::GT, x, y)),
+CmpExpr: Rc<Expression> = {
+    <x:CmpExpr> "==" <y:AddExpr> => Rc::new(Expression::BinOp(BinOperator::EQL, x, y)),
+    <x:CmpExpr> "!=" <y:AddExpr> => Rc::new(Expression::BinOp(BinOperator::NEQ, x, y)),
+    <x:CmpExpr> "<=" <y:AddExpr> => Rc::new(Expression::BinOp(BinOperator::LTE, x, y)),
+    <x:CmpExpr> "<" <y:AddExpr> => Rc::new(Expression::BinOp(BinOperator::LT, x, y)),
+    <x:CmpExpr> ">=" <y:AddExpr> => Rc::new(Expression::BinOp(BinOperator::GTE, x, y)),
+    <x:CmpExpr> ">" <y:AddExpr> => Rc::new(Expression::BinOp(BinOperator::GT, x, y)),
     AddExpr
 }
 
-Expr: Box<Expression> = CmpExpr;
+Expr: Rc<Expression> = CmpExpr;
 
-Stmt: Box<Statement> = {
-    "if" <Expr> "then" <Stmt+> "endif" => Box::new(Statement::IfThen(<>)),
+Stmt: Rc<Statement> = {
+    "if" <Expr> "then" <Stmt+> "endif" => Rc::new(Statement::IfThen(<>)),
     "if" <Expr> "then" <Stmt+> "else" <CommaList<Stmt>> "endif" => 
-        Box::new(Statement::IfElse(<>)),
-    "while" <Expr> "do" <Stmt+> "endwhile" => Box::new(Statement::While(<>)),
-    <Ident> "(" <CommaList<Ident>> ")" ";" => Box::new(Statement::FuncCallStmt(<>)), 
-    "let" <Ident> "=" <Expr> ";" => Box::new(Statement::Assign(<>)),
-    "return" <Expr> ";" => Box::new(Statement::Return(<>)),
+        Rc::new(Statement::IfElse(<>)),
+    "while" <Expr> "do" <Stmt+> "endwhile" => Rc::new(Statement::While(<>)),
+    <Ident> "(" <CommaList<Ident>> ")" ";" => Rc::new(Statement::FuncCallStmt(<>)), 
+    "let" <Ident> "=" <Expr> ";" => Rc::new(Statement::Assign(<>)),
+    "return" <Expr> ";" => Rc::new(Statement::Return(<>)),
 }
 
 FuncDef: FuncDefinition = {
