@@ -13,7 +13,7 @@
 
 use clap::Parser;
 use lalrpop_util::{lalrpop_mod, lexer::Token, ParseError};
-use rchip8::compiler::process_prog;
+use rchip8::c8asc::process_prog;
 use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Write};
 
