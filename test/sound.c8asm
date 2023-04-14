@@ -1,0 +1,3 @@
+      mov V0, #40
+      mov S, V0
+$loop jmp $loop

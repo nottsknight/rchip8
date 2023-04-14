@@ -18,6 +18,7 @@ use rchip8::machine::{
     disassemble::disassemble, Chip8Machine, Chip8Mode, DELAY_1MHZ, DELAY_60HZ, DISPLAY_HEIGHT,
     DISPLAY_WIDTH,
 };
+use rodio::{source::SineWave, OutputStream, Sink, Source};
 use sdl2::{event::Event, keyboard::Scancode, pixels::Color, rect::Rect};
 use simple_logger::SimpleLogger;
 use std::fs::File;
@@ -140,21 +141,29 @@ fn start_vm(mode: Chip8Mode, rom_file: &str) {
         .unwrap();
 
     // Main loop
+    let (_, audio_stream) = OutputStream::try_default().unwrap();
+    let audio_sink = Sink::try_new(&audio_stream).unwrap();
+    let source = SineWave::new(261.63).take_duration(Duration::from_secs(600));
+    audio_sink.append(source);
+
     let mut events = sdl_context.event_pump().unwrap();
     let freq = Duration::from_nanos(DELAY_60HZ);
     'running: loop {
         // Decrement timers
-        let mut delay = delay_timer.lock().unwrap();
-        if *delay > 0 {
-            *delay -= 1;
+        if let Ok(mut delay) = delay_timer.lock() {
+            if *delay > 0 {
+                *delay -= 1;
+            }
         }
-        drop(delay);
 
-        let mut sound = sound_timer.lock().unwrap();
-        if *sound > 0 {
-            *sound -= 1;
+        if let Ok(mut sound) = sound_timer.lock() {
+            if *sound > 0 {
+                audio_sink.play();
+                *sound -= 1;
+            } else {
+                audio_sink.pause();
+            }
         }
-        drop(sound);
 
         // Check for redraw
         if redraw.load(Ordering::Acquire) {
