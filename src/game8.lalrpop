@@ -41,12 +41,12 @@ AddExpr: Rc<Expression> = {
 };
 
 CmpExpr: Rc<Expression> = {
-    <x:CmpExpr> "==" <y:AddExpr> => Rc::new(Expression::BinOp(BinOperator::EQL, x, y)),
-    <x:CmpExpr> "!=" <y:AddExpr> => Rc::new(Expression::BinOp(BinOperator::NEQ, x, y)),
-    <x:CmpExpr> "<=" <y:AddExpr> => Rc::new(Expression::BinOp(BinOperator::LTE, x, y)),
-    <x:CmpExpr> "<" <y:AddExpr> => Rc::new(Expression::BinOp(BinOperator::LT, x, y)),
-    <x:CmpExpr> ">=" <y:AddExpr> => Rc::new(Expression::BinOp(BinOperator::GTE, x, y)),
-    <x:CmpExpr> ">" <y:AddExpr> => Rc::new(Expression::BinOp(BinOperator::GT, x, y)),
+    <x:CmpExpr> "==" <y:AddExpr> => Rc::new(Expression::BinOp(BinOperator::EQL, <>)),
+    <x:CmpExpr> "!=" <y:AddExpr> => Rc::new(Expression::BinOp(BinOperator::NEQ, <>)),
+    <x:CmpExpr> "<=" <y:AddExpr> => Rc::new(Expression::BinOp(BinOperator::LTE, <>)),
+    <x:CmpExpr> "<" <y:AddExpr> => Rc::new(Expression::BinOp(BinOperator::LT, <>)),
+    <x:CmpExpr> ">=" <y:AddExpr> => Rc::new(Expression::BinOp(BinOperator::GTE, <>)),
+    <x:CmpExpr> ">" <y:AddExpr> => Rc::new(Expression::BinOp(BinOperator::GT, <>)),
     AddExpr
 }
 
@@ -54,8 +54,7 @@ Expr: Rc<Expression> = CmpExpr;
 
 Stmt: Rc<Statement> = {
     "if" <Expr> "then" <Stmt+> "endif" => Rc::new(Statement::IfThen(<>)),
-    "if" <Expr> "then" <Stmt+> "else" <CommaList<Stmt>> "endif" => 
-        Rc::new(Statement::IfElse(<>)),
+    "if" <Expr> "then" <Stmt+> "else" <Stmt+> "endif" => Rc::new(Statement::IfElse(<>)),
     "while" <Expr> "do" <Stmt+> "endwhile" => Rc::new(Statement::While(<>)),
     <Ident> "(" <CommaList<Ident>> ")" ";" => Rc::new(Statement::FuncCallStmt(<>)), 
     "let" <Ident> "=" <Expr> ";" => Rc::new(Statement::Assign(<>)),
