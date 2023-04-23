@@ -19,6 +19,7 @@ use rchip8::machine::{
     DISPLAY_WIDTH,
 };
 use rodio::{source::SineWave, OutputStream, Sink, Source};
+use sdl2::keyboard::Keycode;
 use sdl2::{event::Event, keyboard::Scancode, pixels::Color, rect::Rect};
 use simple_logger::SimpleLogger;
 use std::fs::File;
@@ -114,6 +115,8 @@ fn start_vm(mode: Chip8Mode, rom_file: &str) {
     let delay_timer = Arc::new(Mutex::new(0));
     let sound_timer = Arc::new(Mutex::new(0));
     let display = Arc::new(Mutex::new([false; DISPLAY_WIDTH * DISPLAY_HEIGHT]));
+    const NEW_BOOL: AtomicBool = AtomicBool::new(false);
+    let key_state = Arc::new([NEW_BOOL; 16]);
     let current_key = Arc::new((Mutex::new(None), Condvar::new()));
     let redraw = Arc::new(AtomicBool::new(false));
 
@@ -122,6 +125,7 @@ fn start_vm(mode: Chip8Mode, rom_file: &str) {
         delay_timer.clone(),
         sound_timer.clone(),
         display.clone(),
+        key_state.clone(),
         current_key.clone(),
         redraw.clone(),
     );
@@ -141,10 +145,10 @@ fn start_vm(mode: Chip8Mode, rom_file: &str) {
         .unwrap();
 
     // Main loop
-    let (_, audio_stream) = OutputStream::try_default().unwrap();
-    let audio_sink = Sink::try_new(&audio_stream).unwrap();
-    let source = SineWave::new(261.63).take_duration(Duration::from_secs(600));
-    audio_sink.append(source);
+    // let (_, audio_stream) = OutputStream::try_default().unwrap();
+    // let audio_sink = Sink::try_new(&audio_stream).unwrap();
+    // let source = SineWave::new(261.63).take_duration(Duration::from_secs(600));
+    // audio_sink.append(source);
 
     let mut events = sdl_context.event_pump().unwrap();
     let freq = Duration::from_nanos(DELAY_60HZ);
@@ -158,10 +162,10 @@ fn start_vm(mode: Chip8Mode, rom_file: &str) {
 
         if let Ok(mut sound) = sound_timer.lock() {
             if *sound > 0 {
-                audio_sink.play();
+                // audio_sink.play();
                 *sound -= 1;
             } else {
-                audio_sink.pause();
+                // audio_sink.pause();
             }
         }
 
@@ -189,44 +193,57 @@ fn start_vm(mode: Chip8Mode, rom_file: &str) {
         // Respond to input events
         for e in events.poll_iter() {
             match e {
-                Event::Quit { .. } => break 'running,
+                Event::Quit { .. }
+                | Event::KeyDown {
+                    keycode: Some(Keycode::Escape),
+                    ..
+                } => break 'running,
                 Event::KeyDown {
                     scancode: Some(sc), ..
                 } => {
-                    let (lock, cvar) = &*current_key;
-                    let mut key = lock.lock().unwrap();
-                    match sc {
-                        Scancode::Num1 => *key = Some(0x1),
-                        Scancode::Num2 => *key = Some(0x2),
-                        Scancode::Num3 => *key = Some(0x3),
-                        Scancode::Num4 => *key = Some(0xc),
-                        Scancode::Q => *key = Some(0x4),
-                        Scancode::W => *key = Some(0x5),
-                        Scancode::E => *key = Some(0x6),
-                        Scancode::R => *key = Some(0xd),
-                        Scancode::A => *key = Some(0x7),
-                        Scancode::S => *key = Some(0x8),
-                        Scancode::D => *key = Some(0x9),
-                        Scancode::F => *key = Some(0xe),
-                        Scancode::Z => *key = Some(0xa),
-                        Scancode::X => *key = Some(0x0),
-                        Scancode::C => *key = Some(0xb),
-                        Scancode::V => *key = Some(0xf),
-                        _ => *key = None,
-                    }
-                    if key.is_some() {
-                        cvar.notify_one();
+                    if let Some(idx) = scancode_to_index(sc) {
+                        key_state[idx].store(true, Ordering::Release);
+                        let (lock, cvar) = &*current_key;
+                        if let Ok(mut curr_key) = lock.lock() {
+                            *curr_key = Some(idx as u8);
+                            cvar.notify_all();
+                        }
                     }
                 }
-                Event::KeyUp { .. } => {
-                    let (lock, _) = &*current_key;
-                    let mut key = lock.lock().unwrap();
-                    *key = None;
+                Event::KeyUp {
+                    scancode: Some(sc), ..
+                } => {
+                    if let Some(idx) = scancode_to_index(sc) {
+                        key_state[idx].store(false, Ordering::Release);
+                    }
                 }
                 _ => (),
             }
         }
 
         thread::sleep(freq);
+    }
+}
+
+#[inline]
+fn scancode_to_index(sc: Scancode) -> Option<usize> {
+    match sc {
+        Scancode::Num1 => Some(0x1),
+        Scancode::Num2 => Some(0x2),
+        Scancode::Num3 => Some(0x3),
+        Scancode::Num4 => Some(0xc),
+        Scancode::Q => Some(0x4),
+        Scancode::W => Some(0x5),
+        Scancode::E => Some(0x6),
+        Scancode::R => Some(0xd),
+        Scancode::A => Some(0x7),
+        Scancode::S => Some(0x8),
+        Scancode::D => Some(0x9),
+        Scancode::F => Some(0xe),
+        Scancode::Z => Some(0xa),
+        Scancode::X => Some(0x0),
+        Scancode::C => Some(0xb),
+        Scancode::V => Some(0xf),
+        _ => None,
     }
 }

@@ -113,11 +113,13 @@ mod decode_tests {
 
     #[fixture]
     fn vm() -> Chip8Machine {
+        const NEW_BOOL: AtomicBool = AtomicBool::new(false);
         Chip8Machine::new(
             Chip8Mode::Modern,
             Arc::new(Mutex::new(0)),
             Arc::new(Mutex::new(0)),
             Arc::new(Mutex::new([false; DISPLAY_WIDTH * DISPLAY_HEIGHT])),
+            Arc::new([NEW_BOOL; 16]),
             Arc::new((Mutex::new(None), Condvar::new())),
             Arc::new(AtomicBool::new(false)),
         )

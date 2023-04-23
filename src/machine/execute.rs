@@ -149,16 +149,14 @@ impl Chip8Machine {
                 self.registers[0xf] = if underflow { 1 } else { 0 };
             }
             Chip8Inst::SkipEqKey(x) => {
-                let (lock, _) = &*self.current_key;
-                let key = lock.lock().unwrap();
-                if key.is_some() && self.registers[x] == key.unwrap() {
+                let expected = self.registers[x] as usize;
+                if self.key_state[expected].load(Ordering::Acquire) {
                     self.prog_counter += 2;
                 }
             }
             Chip8Inst::SkipNeqKey(x) => {
-                let (lock, _) = &*self.current_key;
-                let key = lock.lock().unwrap();
-                if key.is_some() && self.registers[x] != key.unwrap() {
+                let expected = self.registers[x] as usize;
+                if !self.key_state[expected].load(Ordering::Acquire) {
                     self.prog_counter += 2;
                 }
             }
@@ -230,11 +228,13 @@ mod execute_tests {
 
     #[fixture]
     fn vm() -> Chip8Machine {
+        const NEW_BOOL: AtomicBool = AtomicBool::new(false);
         Chip8Machine::new(
             Chip8Mode::Modern,
             Arc::new(Mutex::new(0)),
             Arc::new(Mutex::new(0)),
             Arc::new(Mutex::new([false; DISPLAY_WIDTH * DISPLAY_HEIGHT])),
+            Arc::new([NEW_BOOL; 16]),
             Arc::new((Mutex::new(None), Condvar::new())),
             Arc::new(AtomicBool::new(false)),
         )

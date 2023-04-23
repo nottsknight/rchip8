@@ -78,6 +78,8 @@ pub struct Chip8Machine {
 
     /// The current state of the display pixels.
     display: Arc<Mutex<Display>>,
+    /// Key state
+    key_state: Arc<[AtomicBool; 16]>,
     /// The current key being pressed along with its condition variable.
     current_key: Arc<(Mutex<Option<u8>>, Condvar)>,
     /// Flags whether the display needs to be redrawn or not.
@@ -90,6 +92,7 @@ impl Chip8Machine {
         delay_timer: Arc<Mutex<u8>>,
         sound_timer: Arc<Mutex<u8>>,
         display: Arc<Mutex<Display>>,
+        key_state: Arc<[AtomicBool; 16]>,
         current_key: Arc<(Mutex<Option<u8>>, Condvar)>,
         redraw: Arc<AtomicBool>,
     ) -> Chip8Machine {
@@ -103,6 +106,7 @@ impl Chip8Machine {
             delay_timer,
             sound_timer,
             display,
+            key_state,
             current_key,
             redraw,
         };
@@ -150,11 +154,13 @@ mod vm_tests {
 
     #[fixture]
     fn vm() -> Chip8Machine {
+        const NEW_BOOL: AtomicBool = AtomicBool::new(false);
         Chip8Machine::new(
             Chip8Mode::Modern,
             Arc::new(Mutex::new(0)),
             Arc::new(Mutex::new(0)),
             Arc::new(Mutex::new([false; DISPLAY_WIDTH * DISPLAY_HEIGHT])),
+            Arc::new([NEW_BOOL; 16]),
             Arc::new((Mutex::new(None), Condvar::new())),
             Arc::new(AtomicBool::new(false)),
         )
