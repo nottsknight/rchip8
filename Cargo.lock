@@ -1083,7 +1083,7 @@ checksum = "f2ff9a1f06a88b01621b7ae906ef0211290d1c8a168a15542486a8f61c0833b9"
 
 [[package]]
 name = "rchip8"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "clap",
  "lalrpop",
