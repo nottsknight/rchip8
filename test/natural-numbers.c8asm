@@ -1,0 +1,27 @@
+$start    input    V0
+          mov      V1, #0
+          mov      V2, #1
+          call     $add_up
+          mov      I, #300
+          bcd      V1
+          load     V2
+          call     $display
+          input    Vf
+          clr
+          jmp      $start
+$add_up   add      V1, V0
+          sub      V0, V2
+          skipeq   V0, #0
+          jmp      $add_up
+          retn
+$display  mov      Va, #5
+          mov      Vb, #5
+          sprite   V0
+          draw     Va, Vb, #5
+          add      Va, #5
+          sprite   V1
+          draw     Va, Vb, #5
+          add      Va, #5
+          sprite   V2
+          draw     Va, Vb, #5
+          retn

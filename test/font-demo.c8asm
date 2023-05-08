@@ -1,0 +1,17 @@
+       mov     Vb, #23
+       jmp     $loop
+$loop  call    $print 
+       add     V0, #1
+       add     V1, #5
+       mov     Va, V1
+       subr    Va, Vb
+       skipeq  Vf, #1
+       mov     V1, #0
+       skipeq  Vf, #1
+       add     V2, #7
+       skipeq  V0, #10 
+       jmp     $loop
+$end   jmp     $end
+$print sprite  V0
+       draw    V1, V2, #5
+       retn
