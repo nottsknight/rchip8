@@ -18,7 +18,7 @@ use rchip8::machine::{
     disassemble::disassemble, Chip8Machine, Chip8Mode, DELAY_1MHZ, DELAY_60HZ, DISPLAY_HEIGHT,
     DISPLAY_WIDTH,
 };
-use rodio::{source::SineWave, OutputStream, Sink, Source};
+// use rodio::{source::SineWave, OutputStream, Sink, Source};
 use sdl2::keyboard::Keycode;
 use sdl2::{event::Event, keyboard::Scancode, pixels::Color, rect::Rect};
 use simple_logger::SimpleLogger;
@@ -215,6 +215,10 @@ fn start_vm(mode: Chip8Mode, rom_file: &str) {
                 } => {
                     if let Some(idx) = scancode_to_index(sc) {
                         key_state[idx].store(false, Ordering::Release);
+                    }
+                    let (lock, _cvar) = &*current_key;
+                    if let Ok(mut curr_key) = lock.lock() {
+                        *curr_key = None;
                     }
                 }
                 _ => (),
