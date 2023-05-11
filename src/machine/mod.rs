@@ -54,6 +54,7 @@ pub enum Chip8Mode {
 
 /// Type representing the display pixels.
 type Display = [bool; DISPLAY_WIDTH * DISPLAY_HEIGHT];
+type RedrawArr = [AtomicBool; DISPLAY_WIDTH * DISPLAY_HEIGHT];
 
 pub struct Chip8Machine {
     /// Flags whether to run in original or modern mode.
@@ -78,12 +79,11 @@ pub struct Chip8Machine {
 
     /// The current state of the display pixels.
     display: Arc<Mutex<Display>>,
+    redraw: Arc<RedrawArr>,
     /// Key state
     key_state: Arc<[AtomicBool; 16]>,
     /// The current key being pressed along with its condition variable.
     current_key: Arc<(Mutex<Option<u8>>, Condvar)>,
-    /// Flags whether the display needs to be redrawn or not.
-    redraw: Arc<AtomicBool>,
 }
 
 impl Chip8Machine {
@@ -92,9 +92,9 @@ impl Chip8Machine {
         delay_timer: Arc<Mutex<u8>>,
         sound_timer: Arc<Mutex<u8>>,
         display: Arc<Mutex<Display>>,
+        redraw: Arc<RedrawArr>,
         key_state: Arc<[AtomicBool; 16]>,
         current_key: Arc<(Mutex<Option<u8>>, Condvar)>,
-        redraw: Arc<AtomicBool>,
     ) -> Chip8Machine {
         let mut vm = Chip8Machine {
             mode,
@@ -160,9 +160,9 @@ mod vm_tests {
             Arc::new(Mutex::new(0)),
             Arc::new(Mutex::new(0)),
             Arc::new(Mutex::new([false; DISPLAY_WIDTH * DISPLAY_HEIGHT])),
+            Arc::new([NEW_BOOL; DISPLAY_WIDTH * DISPLAY_HEIGHT]),
             Arc::new([NEW_BOOL; 16]),
             Arc::new((Mutex::new(None), Condvar::new())),
-            Arc::new(AtomicBool::new(false)),
         )
     }
 

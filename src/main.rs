@@ -116,18 +116,18 @@ fn start_vm(mode: Chip8Mode, rom_file: &str) {
     let sound_timer = Arc::new(Mutex::new(0));
     let display = Arc::new(Mutex::new([false; DISPLAY_WIDTH * DISPLAY_HEIGHT]));
     const NEW_BOOL: AtomicBool = AtomicBool::new(false);
+    let redraw = Arc::new([NEW_BOOL; DISPLAY_WIDTH * DISPLAY_HEIGHT]);
     let key_state = Arc::new([NEW_BOOL; 16]);
     let current_key = Arc::new((Mutex::new(None), Condvar::new()));
-    let redraw = Arc::new(AtomicBool::new(false));
 
     let mut vm = Chip8Machine::new(
         mode,
         delay_timer.clone(),
         sound_timer.clone(),
         display.clone(),
+        redraw.clone(),
         key_state.clone(),
         current_key.clone(),
-        redraw.clone(),
     );
 
     match vm.load_rom(rom_file) {
@@ -170,25 +170,24 @@ fn start_vm(mode: Chip8Mode, rom_file: &str) {
         }
 
         // Check for redraw
-        if redraw.load(Ordering::Acquire) {
-            redraw.store(false, Ordering::Release);
-
-            canvas.set_draw_color(Color::BLACK);
-            canvas.clear();
-
-            canvas.set_draw_color(Color::WHITE);
-            let pixels = display.lock().unwrap();
-            for x in 0..DISPLAY_WIDTH {
-                for y in 0..DISPLAY_HEIGHT {
-                    if pixels[y * DISPLAY_WIDTH + x] {
-                        let r = Rect::new((x * 10) as i32, (y * 10) as i32, 10, 10);
-                        canvas.fill_rect(r).unwrap();
-                    }
+        for x in 0..DISPLAY_WIDTH {
+            for y in 0..DISPLAY_HEIGHT {
+                let idx = y * DISPLAY_WIDTH + x;
+                if redraw[idx].load(Ordering::Acquire) {
+                    redraw[idx].store(false, Ordering::Release);
+                    let pixels = display.lock().unwrap();
+                    let r = Rect::new((x * 10) as i32, (y * 10) as i32, 10, 10);
+                    let color = if pixels[idx] {
+                        Color::WHITE
+                    } else {
+                        Color::BLACK
+                    };
+                    canvas.set_draw_color(color);
+                    canvas.fill_rect(r).unwrap();
                 }
             }
-
-            canvas.present();
         }
+        canvas.present();
 
         // Respond to input events
         for e in events.poll_iter() {

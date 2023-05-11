@@ -25,7 +25,9 @@ impl Chip8Machine {
             Chip8Inst::ClearScreen => {
                 let mut dsp = self.display.lock().unwrap();
                 dsp.fill(false);
-                self.redraw.store(true, Ordering::Release);
+                for i in 0..DISPLAY_WIDTH * DISPLAY_HEIGHT {
+                    self.redraw[i].store(true, Ordering::Release);
+                }
             }
             Chip8Inst::SubCall(n) => {
                 self.stack.push(self.prog_counter);
@@ -110,9 +112,11 @@ impl Chip8Machine {
                     let b = self.memory[self.index_reg + i as usize];
                     'cols: for j in 0..8 {
                         let px = b & (0x1 << (7 - j));
-                        if set_display_pixel(&mut dsp, x as usize, y as usize, px != 0) {
+                        let idx = get_pixel_index(x, y);
+                        if set_display_pixel(&mut dsp, idx, px != 0) {
                             self.registers[0xf] = 1;
                         }
+                        self.redraw[idx].store(true, Ordering::Release);
 
                         x += 1;
                         if x >= DISPLAY_WIDTH {
@@ -126,7 +130,6 @@ impl Chip8Machine {
                     }
                     x = (self.registers[x_reg] & 63) as usize;
                 }
-                self.redraw.store(true, Ordering::Release);
             }
             Chip8Inst::Random(x, n) => {
                 let r = rand::random::<u8>();
@@ -213,9 +216,14 @@ impl Chip8Machine {
 }
 
 #[inline]
-fn set_display_pixel(display: &mut Display, x: usize, y: usize, px: bool) -> bool {
-    let px0 = display[y * DISPLAY_WIDTH + x];
-    display[y * DISPLAY_WIDTH + x] = px0 ^ px;
+fn get_pixel_index(x: usize, y: usize) -> usize {
+    y * DISPLAY_WIDTH + x
+}
+
+#[inline]
+fn set_display_pixel(display: &mut Display, idx: usize, px: bool) -> bool {
+    let px0 = display[idx];
+    display[idx] = px0 ^ px;
     px0 && (px ^ px0)
 }
 
@@ -234,9 +242,9 @@ mod execute_tests {
             Arc::new(Mutex::new(0)),
             Arc::new(Mutex::new(0)),
             Arc::new(Mutex::new([false; DISPLAY_WIDTH * DISPLAY_HEIGHT])),
+            Arc::new([NEW_BOOL; DISPLAY_WIDTH * DISPLAY_HEIGHT]),
             Arc::new([NEW_BOOL; 16]),
             Arc::new((Mutex::new(None), Condvar::new())),
-            Arc::new(AtomicBool::new(false)),
         )
     }
 
