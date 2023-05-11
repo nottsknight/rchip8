@@ -119,9 +119,9 @@ mod decode_tests {
             Arc::new(Mutex::new(0)),
             Arc::new(Mutex::new(0)),
             Arc::new(Mutex::new([false; DISPLAY_WIDTH * DISPLAY_HEIGHT])),
+            Arc::new([NEW_BOOL; DISPLAY_WIDTH * DISPLAY_HEIGHT]),
             Arc::new([NEW_BOOL; 16]),
             Arc::new((Mutex::new(None), Condvar::new())),
-            Arc::new(AtomicBool::new(false)),
         )
     }
 
